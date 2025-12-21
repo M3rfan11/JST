@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Admin Dashboard API Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Login Test</h2>
+        <button onclick="testLogin()">Test Login</button>
+        <div id="login-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Dashboard Stats Test</h2>
+        <button onclick="testDashboardStats()">Test Dashboard Stats</button>
+        <div id="stats-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Recent Activity Test</h2>
+        <button onclick="testRecentActivity()">Test Recent Activity</button>
+        <div id="activity-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Low Stock Items Test</h2>
+        <button onclick="testLowStock()">Test Low Stock Items</button>
+        <div id="lowstock-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>5. Products Test</h2>
+        <button onclick="testProducts()">Test Products</button>
+        <div id="products-result"></div>
+    </div>
+
+    <script>
+        let token = '';
+        
+        async function testLogin() {
+            const resultDiv = document.getElementById('login-result');
+            resultDiv.innerHTML = '<p class="info">Testing login...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@jst.com',
+                        password: 'Admin123!'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.accessToken) {
+                    token = data.accessToken;
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ Login successful!</p>
+                        <p><strong>User:</strong> ${data.user?.fullName || 'N/A'} (${data.user?.email || 'N/A'})</p>
+                        <p><strong>Roles:</strong> ${data.user?.roles?.join(', ') || 'N/A'}</p>
+                        <p><strong>Token:</strong> ${token.substring(0, 50)}...</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <p class="error">❌ Login failed</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <p class="error">❌ Error: ${error.message}</p>
+                    <p>Make sure the backend is running on http://localhost:8080</p>
+                `;
+            }
+        }
+        
+        async function testDashboardStats() {
+            const resultDiv = document.getElementById('stats-result');
+            
+            if (!token) {
+                resultDiv.innerHTML = '<p class="error">Please login first!</p>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<p class="info">Testing dashboard stats...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/dashboard/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ Dashboard stats retrieved!</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <p class="error">❌ Failed to get stats</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function testRecentActivity() {
+            const resultDiv = document.getElementById('activity-result');
+            
+            if (!token) {
+                resultDiv.innerHTML = '<p class="error">Please login first!</p>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<p class="info">Testing recent activity...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/dashboard/recent-activity', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ Recent activity retrieved! (${Array.isArray(data) ? data.length : 0} items)</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <p class="error">❌ Failed to get activity</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function testLowStock() {
+            const resultDiv = document.getElementById('lowstock-result');
+            
+            if (!token) {
+                resultDiv.innerHTML = '<p class="error">Please login first!</p>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<p class="info">Testing low stock items...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/dashboard/low-stock-items', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ Low stock items retrieved! (${Array.isArray(data) ? data.length : 0} items)</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <p class="error">❌ Failed to get low stock items</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function testProducts() {
+            const resultDiv = document.getElementById('products-result');
+            
+            if (!token) {
+                resultDiv.innerHTML = '<p class="error">Please login first!</p>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<p class="info">Testing products...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/products', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ Products retrieved! (${Array.isArray(data) ? data.length : 0} products)</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <p class="error">❌ Failed to get products</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+

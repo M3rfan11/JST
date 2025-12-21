@@ -1,0 +1,56 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace Api.Models
+{
+    public class SalesOrder
+    {
+        public int Id { get; set; }
+        
+        [Required]
+        [MaxLength(50)]
+        public string OrderNumber { get; set; } = string.Empty;
+        
+        [MaxLength(100)]
+        public string? CustomerName { get; set; }
+        
+        [MaxLength(500)]
+        public string? CustomerAddress { get; set; }
+        
+        [MaxLength(50)]
+        public string? CustomerPhone { get; set; }
+        
+        [MaxLength(100)]
+        public string? CustomerEmail { get; set; }
+        
+        public DateTime OrderDate { get; set; }
+        
+        public DateTime? DeliveryDate { get; set; }
+        
+        [Required]
+        public decimal TotalAmount { get; set; }
+        
+        public decimal? DownPayment { get; set; } // Down payment amount for furniture orders
+        
+        [MaxLength(20)]
+        public string Status { get; set; } = "Pending"; // Pending, Confirmed, Shipped, Delivered, Cancelled
+        
+        [MaxLength(20)]
+        public string PaymentStatus { get; set; } = "Pending"; // Pending, Paid, PartiallyPaid, Refunded
+        
+        [MaxLength(500)]
+        public string? Notes { get; set; }
+        
+        public int CreatedByUserId { get; set; }
+        
+        public int? ConfirmedByUserId { get; set; }
+        
+        public DateTime CreatedAt { get; set; }
+        
+        public DateTime? UpdatedAt { get; set; }
+        
+        // Navigation properties
+        public virtual User CreatedByUser { get; set; } = null!;
+        public virtual User? ConfirmedByUser { get; set; }
+        public virtual ICollection<SalesItem> SalesItems { get; set; } = new List<SalesItem>();
+    }
+}
