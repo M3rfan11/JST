@@ -151,7 +151,7 @@ export const api = {
   // Products
   products: {
     getAll: () => apiClient.get('/api/product/all'), // Admin endpoint with all products (requires auth)
-    getPublic: () => apiClient.get('/api/product'), // Public endpoint (active only)
+    getPublic: (params?: { categoryName?: string }) => apiClient.get('/api/product', params), // Public endpoint (active only, optional category filter)
     getById: (id: string) => apiClient.get(`/api/product/${id}`),
     create: (data: unknown) => apiClient.post('/api/product', data),
     update: (id: string, data: unknown) => apiClient.put(`/api/product/${id}`, data),
@@ -189,12 +189,12 @@ export const api = {
 
   // Cart
   cart: {
-    get: () => apiClient.get('/api/cart'),
-    addItem: (data: unknown) => apiClient.post('/api/cart/items', data),
-    updateItem: (itemId: string, data: unknown) =>
-      apiClient.put(`/api/cart/items/${itemId}`, data),
-    removeItem: (itemId: string) => apiClient.delete(`/api/cart/items/${itemId}`),
-    clear: () => apiClient.delete('/api/cart'),
+    get: () => apiClient.get('/api/customerorder/cart'),
+    addItem: (data: unknown) => apiClient.post('/api/customerorder/cart/add', data),
+    updateItem: (itemId: number, data: unknown) =>
+      apiClient.put(`/api/customerorder/cart/${itemId}`, data),
+    removeItem: (itemId: number) => apiClient.delete(`/api/customerorder/cart/${itemId}`),
+    clear: () => apiClient.delete('/api/customerorder/cart/clear'),
   },
 
   // Promo codes / Coupons
