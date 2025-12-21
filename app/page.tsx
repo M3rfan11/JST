@@ -117,11 +117,11 @@ export default function Home() {
       <section className="container mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-24">
         <div className="flex items-end justify-between mb-8 sm:mb-12">
           <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold" style={{ fontFamily: '"Dream Avenue"' }}>New Arrivals</h2>
-          <Link href="/shop" className="text-sm font-medium hover:text-muted-foreground transition-colors" style={{ fontFamily: '"Dream Avenue"' }}>
+          <Link href="/new" className="text-sm font-medium hover:text-muted-foreground transition-colors" style={{ fontFamily: '"Dream Avenue"' }}>
             View All →
           </Link>
         </div>
-        <ProductGrid limit={4} />
+        <ProductGrid limit={4} categoryName="New Arrival" />
       </section>
 
       {/* Footer */}
