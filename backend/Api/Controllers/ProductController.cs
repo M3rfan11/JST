@@ -110,6 +110,14 @@ public class ProductController : ControllerBase
                     .Sum(pi => pi.Quantity);
             }
 
+            // Get all category IDs from ProductCategories
+            var allCategoryIds = p.ProductCategories?.Select(pc => pc.CategoryId).ToList() ?? new List<int>();
+            // If no ProductCategories but has CategoryId (legacy field), use that
+            if (allCategoryIds.Count == 0 && p.CategoryId > 0)
+            {
+                allCategoryIds.Add(p.CategoryId);
+            }
+
             return new ProductListResponse
             {
                 Id = p.Id,
@@ -121,6 +129,9 @@ public class ProductController : ControllerBase
                 SKU = p.SKU,
                 Brand = p.Brand,
                 ImageUrl = p.ImageUrl,
+                MediaUrls = p.MediaUrls, // Include MediaUrls for frontend image display
+                CategoryId = p.CategoryId > 0 ? p.CategoryId : null, // Primary category ID (legacy, nullable in DTO)
+                CategoryIds = allCategoryIds, // All category IDs for filtering
                 CategoryName = p.Category.Name,
                 IsActive = p.IsActive,
                 TotalQuantity = totalQuantity,
