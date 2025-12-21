@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# .NET build artifacts
+backend/Api/bin/
+backend/Api/obj/
+backend/Api/*.db
+backend/Api/*.db-shm
+backend/Api/*.db-wal
+backend/Api/*.log
+backend/Api/appsettings.Development.json
