@@ -10,6 +10,7 @@ import { useAuth } from "./auth-provider"
 export interface CartItem {
   id: string
   productId?: number // Product ID from backend
+  variantId?: number // Variant ID from backend (for inventory deduction)
   name: string
   price: number
   image: string

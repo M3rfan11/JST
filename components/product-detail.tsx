@@ -161,6 +161,7 @@ export function ProductDetail({ product }: { product: Product }) {
     const item = {
       id: product.id,
       productId: typeof product.id === 'string' && !isNaN(Number(product.id)) ? Number(product.id) : undefined,
+      variantId: variantId, // Include variant ID for inventory tracking
       name: product.name,
       price: variantPrice,
       image: optimizedImage,

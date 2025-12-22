@@ -116,9 +116,9 @@ public class OnlineOrderManager : IOnlineOrderManager
 
                 foreach (var itemRequest in request.Items)
                 {
-                    // Reserve inventory
+                    // Reserve inventory (includes variant if specified)
                     var inventoryReservation = await ReserveInventoryForItemAsync(
-                        salesOrder.Id, itemRequest.ProductId, itemRequest.Quantity, onlineWarehouse.Id);
+                        salesOrder.Id, itemRequest.ProductId, itemRequest.Quantity, onlineWarehouse.Id, itemRequest.VariantId);
 
                     if (!inventoryReservation.Success)
                     {
@@ -135,6 +135,7 @@ public class OnlineOrderManager : IOnlineOrderManager
                     {
                         SalesOrderId = salesOrder.Id,
                         ProductId = itemRequest.ProductId,
+                        ProductVariantId = itemRequest.VariantId, // Track which variant was ordered
                         WarehouseId = onlineWarehouse.Id,
                         Quantity = itemRequest.Quantity,
                         UnitPrice = itemRequest.UnitPrice,
@@ -548,7 +549,7 @@ public class OnlineOrderManager : IOnlineOrderManager
 
             foreach (var item in items)
             {
-                var reservation = await ReserveInventoryForItemAsync(orderId, item.ProductId, item.Quantity, onlineWarehouse.Id);
+                var reservation = await ReserveInventoryForItemAsync(orderId, item.ProductId, item.Quantity, onlineWarehouse.Id, item.VariantId);
                 if (!reservation.Success)
                 {
                     result.Success = false;
@@ -604,19 +605,54 @@ public class OnlineOrderManager : IOnlineOrderManager
 
             foreach (var item in salesItems)
             {
-                var inventory = await _context.ProductInventories
-                    .FirstOrDefaultAsync(pi => pi.ProductId == item.ProductId && pi.WarehouseId == onlineWarehouse.Id);
-
-                if (inventory != null)
+                // Check if product is AlwaysAvailable (no inventory was deducted)
+                var product = await _context.Products.FindAsync(item.ProductId);
+                if (product != null && product.AlwaysAvailable)
                 {
-                    inventory.Quantity += item.Quantity;
-                    inventory.UpdatedAt = DateTime.UtcNow;
+                    continue; // No inventory to release for AlwaysAvailable products
+                }
 
-                    result.Releases.Add(new InventoryRelease
+                if (item.ProductVariantId.HasValue)
+                {
+                    // Release variant inventory
+                    var variantInventory = await _context.VariantInventories
+                        .FirstOrDefaultAsync(vi => vi.ProductVariantId == item.ProductVariantId.Value && vi.WarehouseId == onlineWarehouse.Id);
+
+                    if (variantInventory != null)
                     {
-                        ProductId = item.ProductId,
-                        ReleasedQuantity = item.Quantity
-                    });
+                        variantInventory.Quantity += item.Quantity;
+                        variantInventory.UpdatedAt = DateTime.UtcNow;
+
+                        _logger.LogInformation("Released {Quantity} to variant inventory {VariantId}. New quantity: {NewQuantity}", 
+                            item.Quantity, item.ProductVariantId.Value, variantInventory.Quantity);
+
+                        result.Releases.Add(new InventoryRelease
+                        {
+                            ProductId = item.ProductId,
+                            ReleasedQuantity = item.Quantity
+                        });
+                    }
+                }
+                else
+                {
+                    // Release product inventory
+                    var inventory = await _context.ProductInventories
+                        .FirstOrDefaultAsync(pi => pi.ProductId == item.ProductId && pi.WarehouseId == onlineWarehouse.Id);
+
+                    if (inventory != null)
+                    {
+                        inventory.Quantity += item.Quantity;
+                        inventory.UpdatedAt = DateTime.UtcNow;
+
+                        _logger.LogInformation("Released {Quantity} to product inventory {ProductId}. New quantity: {NewQuantity}", 
+                            item.Quantity, item.ProductId, inventory.Quantity);
+
+                        result.Releases.Add(new InventoryRelease
+                        {
+                            ProductId = item.ProductId,
+                            ReleasedQuantity = item.Quantity
+                        });
+                    }
                 }
             }
 
@@ -1138,32 +1174,81 @@ public class OnlineOrderManager : IOnlineOrderManager
         return validTransitions.ContainsKey(currentStatus) && validTransitions[currentStatus].Contains(newStatus);
     }
 
-    private async Task<InventoryReservationResult> ReserveInventoryForItemAsync(int orderId, int productId, decimal quantity, int warehouseId)
+    private async Task<InventoryReservationResult> ReserveInventoryForItemAsync(int orderId, int productId, decimal quantity, int warehouseId, int? variantId = null)
     {
         var result = new InventoryReservationResult();
 
         try
         {
-            var inventory = await _context.ProductInventories
-                .FirstOrDefaultAsync(pi => pi.ProductId == productId && pi.WarehouseId == warehouseId);
-
-            if (inventory == null)
+            // Check if product is AlwaysAvailable
+            var product = await _context.Products.FindAsync(productId);
+            if (product != null && product.AlwaysAvailable)
             {
-                result.Success = false;
-                result.ErrorMessage = $"Product {productId} not found in online inventory";
+                // Skip inventory reservation for AlwaysAvailable products
+                result.Success = true;
+                result.Reservations.Add(new InventoryReservation
+                {
+                    ProductId = productId,
+                    ReservedQuantity = quantity,
+                    ReservedUntil = DateTime.UtcNow.AddHours((int)_businessRules["InventoryReservationHours"])
+                });
                 return result;
             }
 
-            if (inventory.Quantity < quantity)
+            if (variantId.HasValue)
             {
-                result.Success = false;
-                result.ErrorMessage = $"Insufficient inventory for product {productId}. Available: {inventory.Quantity}, Requested: {quantity}";
-                return result;
-            }
+                // Reserve from variant inventory
+                var variantInventory = await _context.VariantInventories
+                    .FirstOrDefaultAsync(vi => vi.ProductVariantId == variantId.Value && vi.WarehouseId == warehouseId);
 
-            // Reserve inventory
-            inventory.Quantity -= quantity;
-            inventory.UpdatedAt = DateTime.UtcNow;
+                if (variantInventory == null)
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"Variant {variantId.Value} not found in online inventory";
+                    return result;
+                }
+
+                if (variantInventory.Quantity < quantity)
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"Insufficient inventory for variant {variantId.Value}. Available: {variantInventory.Quantity}, Requested: {quantity}";
+                    return result;
+                }
+
+                // Reserve inventory
+                variantInventory.Quantity -= quantity;
+                variantInventory.UpdatedAt = DateTime.UtcNow;
+
+                _logger.LogInformation("Reserved {Quantity} from variant inventory {VariantId}. New quantity: {NewQuantity}", 
+                    quantity, variantId.Value, variantInventory.Quantity);
+            }
+            else
+            {
+                // Reserve from product inventory
+                var inventory = await _context.ProductInventories
+                    .FirstOrDefaultAsync(pi => pi.ProductId == productId && pi.WarehouseId == warehouseId);
+
+                if (inventory == null)
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"Product {productId} not found in online inventory";
+                    return result;
+                }
+
+                if (inventory.Quantity < quantity)
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"Insufficient inventory for product {productId}. Available: {inventory.Quantity}, Requested: {quantity}";
+                    return result;
+                }
+
+                // Reserve inventory
+                inventory.Quantity -= quantity;
+                inventory.UpdatedAt = DateTime.UtcNow;
+
+                _logger.LogInformation("Reserved {Quantity} from product inventory {ProductId}. New quantity: {NewQuantity}", 
+                    quantity, productId, inventory.Quantity);
+            }
 
             result.Success = true;
             result.Reservations.Add(new InventoryReservation

@@ -10,6 +10,8 @@ namespace Api.Models
         
         public int ProductId { get; set; }
         
+        public int? ProductVariantId { get; set; } // Optional: tracks which variant was ordered
+        
         public int WarehouseId { get; set; }
         
         [Required]
@@ -34,6 +36,7 @@ namespace Api.Models
         // Navigation properties
         public virtual SalesOrder SalesOrder { get; set; } = null!;
         public virtual Product Product { get; set; } = null!;
+        public virtual ProductVariant? ProductVariant { get; set; }
         public virtual Warehouse Warehouse { get; set; } = null!;
     }
 }

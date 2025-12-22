@@ -92,6 +92,7 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
 
         return {
           productId: productId,
+          variantId: item.variantId, // Include variant ID for inventory deduction
           quantity: item.quantity,
           unitPrice: item.price,
           unit: "piece",

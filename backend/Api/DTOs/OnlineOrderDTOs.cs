@@ -32,6 +32,8 @@ namespace Api.DTOs
         [Required]
         public int ProductId { get; set; }
 
+        public int? VariantId { get; set; } // Optional: for variant-specific orders
+
         [Required]
         [Range(0.01, double.MaxValue, ErrorMessage = "Quantity must be greater than 0")]
         public decimal Quantity { get; set; }
@@ -87,8 +89,10 @@ namespace Api.DTOs
     {
         public int Id { get; set; }
         public int ProductId { get; set; }
+        public int? VariantId { get; set; }
         public string ProductName { get; set; } = string.Empty;
         public string? ProductSKU { get; set; }
+        public string? VariantName { get; set; } // e.g., "Red / Large"
         public decimal Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TotalPrice { get; set; }

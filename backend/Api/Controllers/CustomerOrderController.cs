@@ -590,11 +590,12 @@ public class CustomerOrderController : ControllerBase
             _context.SalesOrders.Add(order);
             await _context.SaveChangesAsync();
 
-            // Create order items
+            // Create order items with variant tracking
             var salesItems = request.Items.Select(item => new SalesItem
             {
                 SalesOrderId = order.Id,
                 ProductId = item.ProductId,
+                ProductVariantId = item.VariantId, // Track which variant was ordered
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TotalPrice = item.Quantity * item.UnitPrice,
@@ -604,6 +605,46 @@ public class CustomerOrderController : ControllerBase
             }).ToList();
 
             _context.SalesItems.AddRange(salesItems);
+
+            // Deduct inventory for each item
+            foreach (var item in request.Items)
+            {
+                // Get the product to check AlwaysAvailable flag
+                var product = await _context.Products.FindAsync(item.ProductId);
+                if (product != null && product.AlwaysAvailable)
+                {
+                    continue; // Skip inventory deduction for AlwaysAvailable products
+                }
+
+                if (item.VariantId.HasValue)
+                {
+                    // Deduct from variant inventory
+                    var variantInventory = await _context.VariantInventories
+                        .FirstOrDefaultAsync(vi => vi.ProductVariantId == item.VariantId.Value && vi.WarehouseId == onlineWarehouse.Id);
+                    
+                    if (variantInventory != null)
+                    {
+                        variantInventory.Quantity -= item.Quantity;
+                        variantInventory.UpdatedAt = DateTime.UtcNow;
+                        _logger.LogInformation("Deducted {Quantity} from variant inventory {VariantId}. New quantity: {NewQuantity}", 
+                            item.Quantity, item.VariantId.Value, variantInventory.Quantity);
+                    }
+                }
+                else
+                {
+                    // Deduct from product inventory
+                    var productInventory = await _context.ProductInventories
+                        .FirstOrDefaultAsync(pi => pi.ProductId == item.ProductId && pi.WarehouseId == onlineWarehouse.Id);
+                    
+                    if (productInventory != null)
+                    {
+                        productInventory.Quantity -= item.Quantity;
+                        productInventory.UpdatedAt = DateTime.UtcNow;
+                        _logger.LogInformation("Deducted {Quantity} from product inventory {ProductId}. New quantity: {NewQuantity}", 
+                            item.Quantity, item.ProductId, productInventory.Quantity);
+                    }
+                }
+            }
 
             // Create initial tracking entry
             var tracking = new OrderTracking
@@ -903,11 +944,12 @@ public class CustomerOrderController : ControllerBase
             _context.SalesOrders.Add(order);
             await _context.SaveChangesAsync();
 
-            // Create order items
+            // Create order items with variant tracking
             var salesItems = orderItems.Select(item => new SalesItem
             {
                 SalesOrderId = order.Id,
                 ProductId = item.ProductId,
+                ProductVariantId = item.VariantId, // Track which variant was ordered
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TotalPrice = item.Quantity * item.UnitPrice,
@@ -917,6 +959,46 @@ public class CustomerOrderController : ControllerBase
             }).ToList();
 
             _context.SalesItems.AddRange(salesItems);
+
+            // Deduct inventory for each item
+            foreach (var item in orderItems)
+            {
+                // Get the product to check AlwaysAvailable flag
+                var product = await _context.Products.FindAsync(item.ProductId);
+                if (product != null && product.AlwaysAvailable)
+                {
+                    continue; // Skip inventory deduction for AlwaysAvailable products
+                }
+
+                if (item.VariantId.HasValue)
+                {
+                    // Deduct from variant inventory
+                    var variantInventory = await _context.VariantInventories
+                        .FirstOrDefaultAsync(vi => vi.ProductVariantId == item.VariantId.Value && vi.WarehouseId == onlineWarehouse.Id);
+                    
+                    if (variantInventory != null)
+                    {
+                        variantInventory.Quantity -= item.Quantity;
+                        variantInventory.UpdatedAt = DateTime.UtcNow;
+                        _logger.LogInformation("Deducted {Quantity} from variant inventory {VariantId}. New quantity: {NewQuantity}", 
+                            item.Quantity, item.VariantId.Value, variantInventory.Quantity);
+                    }
+                }
+                else
+                {
+                    // Deduct from product inventory
+                    var productInventory = await _context.ProductInventories
+                        .FirstOrDefaultAsync(pi => pi.ProductId == item.ProductId && pi.WarehouseId == onlineWarehouse.Id);
+                    
+                    if (productInventory != null)
+                    {
+                        productInventory.Quantity -= item.Quantity;
+                        productInventory.UpdatedAt = DateTime.UtcNow;
+                        _logger.LogInformation("Deducted {Quantity} from product inventory {ProductId}. New quantity: {NewQuantity}", 
+                            item.Quantity, item.ProductId, productInventory.Quantity);
+                    }
+                }
+            }
 
             // Create initial tracking entry
             var tracking = new OrderTracking
