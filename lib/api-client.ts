@@ -303,6 +303,49 @@ export const api = {
     getShippingTicker: () => apiClient.get('/api/settings/shipping-ticker'),
     updateShippingTicker: (messages: string[]) => apiClient.put('/api/settings/shipping-ticker', { messages }),
   },
+
+  // Reports & Analytics
+  reports: {
+    // Sales Reports
+    getSalesReport: (params?: { year?: number; quarter?: number; storeId?: number }) => 
+      apiClient.get('/api/reports/sales', params),
+    
+    // Purchase Reports  
+    getPurchaseReport: (params?: { year?: number; quarter?: number; storeId?: number }) => 
+      apiClient.get('/api/reports/purchases', params),
+    
+    // Peak Sales Analysis
+    getPeakSales: (params?: { year?: number; quarter?: number; storeId?: number }) => 
+      apiClient.get('/api/reports/peak-sales', params),
+    
+    // Revenue Over Time
+    getRevenueOverTime: (params?: { period?: string; startDate?: string; endDate?: string }) => 
+      apiClient.get('/api/reports/revenue-over-time', params),
+    
+    // Category Sales
+    getCategorySales: (params?: { year?: number; month?: number }) => 
+      apiClient.get('/api/reports/category-sales', params),
+    
+    // Customer Analytics
+    getCustomerAnalytics: () => 
+      apiClient.get('/api/reports/customer-analytics'),
+    
+    // Inventory Reports
+    getInventoryReport: (params?: { deadStockDays?: number }) => 
+      apiClient.get('/api/reports/inventory', params),
+    
+    // Financial Reports
+    getFinancialReport: (params?: { year?: number; month?: number }) => 
+      apiClient.get('/api/reports/financial', params),
+    
+    // Promo Code Analytics
+    getPromoAnalytics: () => 
+      apiClient.get('/api/reports/promo-analytics'),
+    
+    // Order Status Distribution
+    getOrderStatusDistribution: (params?: { year?: number; month?: number }) => 
+      apiClient.get('/api/reports/order-status', params),
+  },
 }
 
 export default apiClient
