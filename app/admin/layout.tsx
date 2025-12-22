@@ -21,23 +21,24 @@ import { Button } from "@/components/ui/button"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isChecking, setIsChecking] = useState(true)
   const pathname = usePathname()
   const router = useRouter()
-  const { logout, isAuthenticated, isSuperAdmin } = useAuth()
+  const { logout, isAuthenticated, isInitialized, isSuperAdmin } = useAuth()
 
   useEffect(() => {
+    // Wait for auth to be initialized before making redirect decisions
+    if (!isInitialized) return
+
     if (!isAuthenticated) {
       router.push("/login?redirect=/admin")
     } else if (!isSuperAdmin) {
       // If user is authenticated but not SuperAdmin, redirect to profile
       router.push("/profile")
-    } else {
-      setIsChecking(false)
     }
-  }, [isAuthenticated, isSuperAdmin, router])
+  }, [isAuthenticated, isInitialized, isSuperAdmin, router])
 
-  if (isChecking || !isAuthenticated || !isSuperAdmin) {
+  // Show loading while auth is initializing or user isn't authenticated/authorized
+  if (!isInitialized || !isAuthenticated || !isSuperAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg" style={{ fontFamily: '"Dream Avenue"' }}>Loading...</div>

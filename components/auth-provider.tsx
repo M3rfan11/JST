@@ -19,6 +19,7 @@ interface AuthContextType {
   signup: (email: string, password: string, firstName: string, lastName: string) => Promise<boolean>
   logout: () => void
   isAuthenticated: boolean
+  isInitialized: boolean
   userId: string | null
   isSuperAdmin: boolean
 }
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -49,6 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("authToken")
       }
     }
+    // Mark auth as initialized after checking localStorage
+    setIsInitialized(true)
   }, [])
 
   const login = async (email: string, password: string): Promise<{ success: boolean; redirectTo?: string }> => {
@@ -149,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         logout,
         isAuthenticated: !!user,
+        isInitialized,
         userId: user?.id || null,
         isSuperAdmin,
       }}
