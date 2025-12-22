@@ -60,12 +60,22 @@ export function ProductCard({ product }: { product: Product }) {
     <div className="group relative">
       <Link href={`/product/${product.id}`}>
         <div className="relative aspect-[3/4] overflow-hidden bg-secondary mb-4">
-          <Image
-            src={product.image || "/placeholder.svg"}
-            alt={product.name}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+          {product.image && product.image.startsWith('data:image') ? (
+            // Use regular img tag for base64 images
+            <img 
+              src={product.image} 
+              alt={product.name} 
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <Image
+              src={product.image || "/placeholder.svg"}
+              alt={product.name}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              unoptimized={product.image?.startsWith('http://localhost') || product.image?.startsWith('data:')}
+            />
+          )}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
 
           {showCartAnimation && (

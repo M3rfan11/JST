@@ -12,14 +12,14 @@ interface Product {
   category: string
 }
 
-export function ProductGrid({ limit, categoryId }: { limit?: number; categoryId?: number }) {
+export function ProductGrid({ limit, categoryId, categoryName }: { limit?: number; categoryId?: number; categoryName?: string }) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadProducts()
-  }, [categoryId])
+  }, [categoryId, categoryName])
 
   const loadProducts = async () => {
     try {
@@ -27,7 +27,8 @@ export function ProductGrid({ limit, categoryId }: { limit?: number; categoryId?
       setError(null)
       
       // Fetch products from API (using public endpoint that doesn't require auth)
-      const response = await api.products.getPublic() as any
+      // Pass categoryName to filter on the backend if provided
+      const response = await api.products.getPublic(categoryName ? { categoryName } : undefined) as any
       
       // Handle different response formats
       let productsList: any[] = []
@@ -39,11 +40,13 @@ export function ProductGrid({ limit, categoryId }: { limit?: number; categoryId?
         productsList = response.data
       }
       
-      // Filter by category if categoryId is provided
-      if (categoryId) {
+      // Filter by category if categoryId is provided (only if categoryName is not provided, since backend handles categoryName)
+      if (categoryId && !categoryName) {
         productsList = productsList.filter((p: any) => {
+          // Check primary categoryId (legacy)
           if (p.categoryId === categoryId) return true
-          if (p.categoryIds && Array.isArray(p.categoryIds)) {
+          // Check categoryIds array (multiple categories support)
+          if (p.categoryIds && Array.isArray(p.categoryIds) && p.categoryIds.length > 0) {
             return p.categoryIds.includes(categoryId)
           }
           return false
@@ -54,22 +57,45 @@ export function ProductGrid({ limit, categoryId }: { limit?: number; categoryId?
       const mappedProducts: Product[] = productsList
         .filter((p: any) => p.isActive !== false && (p.status === 1 || p.status === 'Active' || p.status === undefined))
         .map((p: any) => {
-          // Get first image from mediaUrls or use imageUrl
+          // Get first image from mediaUrls, imageUrl, or variants
           let imageUrl = "/placeholder.svg"
+          
+          // Try product-level mediaUrls first
           if (p.mediaUrls) {
             try {
               const mediaUrls = typeof p.mediaUrls === 'string' ? JSON.parse(p.mediaUrls) : p.mediaUrls
-              if (Array.isArray(mediaUrls) && mediaUrls.length > 0) {
+              if (Array.isArray(mediaUrls) && mediaUrls.length > 0 && mediaUrls[0]) {
                 imageUrl = mediaUrls[0]
               }
             } catch {
-              // If parsing fails, try imageUrl
-              if (p.imageUrl) {
-                imageUrl = p.imageUrl
+              // If parsing fails, continue to next option
+            }
+          }
+          
+          // Fallback to product imageUrl if mediaUrls didn't work
+          if (imageUrl === "/placeholder.svg" && p.imageUrl) {
+            imageUrl = p.imageUrl
+          }
+          
+          // Fallback to variant images if product has no image
+          if (imageUrl === "/placeholder.svg" && p.variants && Array.isArray(p.variants) && p.variants.length > 0) {
+            for (const variant of p.variants) {
+              if (variant.mediaUrls) {
+                try {
+                  const variantMediaUrls = typeof variant.mediaUrls === 'string' ? JSON.parse(variant.mediaUrls) : variant.mediaUrls
+                  if (Array.isArray(variantMediaUrls) && variantMediaUrls.length > 0 && variantMediaUrls[0]) {
+                    imageUrl = variantMediaUrls[0]
+                    break
+                  }
+                } catch {
+                  // Continue to next variant
+                }
+              }
+              if (imageUrl === "/placeholder.svg" && variant.imageUrl) {
+                imageUrl = variant.imageUrl
+                break
               }
             }
-          } else if (p.imageUrl) {
-            imageUrl = p.imageUrl
           }
           
           // Get category name (first category if multiple)

@@ -176,6 +176,9 @@ namespace Api.DTOs
         public string? SKU { get; set; }
         public string? Brand { get; set; }
         public string? ImageUrl { get; set; }
+        public string? MediaUrls { get; set; } // JSON array of image URLs
+        public int? CategoryId { get; set; } // Primary category ID (legacy)
+        public List<int> CategoryIds { get; set; } = new List<int>(); // All category IDs
         public string CategoryName { get; set; } = string.Empty;
         public bool IsActive { get; set; }
         public decimal TotalQuantity { get; set; }
