@@ -6,6 +6,7 @@ import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { OrdersList } from "@/components/orders-list";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -54,7 +55,7 @@ interface Order {
   paymentStatus: string;
   notes?: string;
   items: OrderItem[];
-  trackingHistory: OrderTrackingEvent[];
+  trackingHistory?: OrderTrackingEvent[];
 }
 
 export default function TrackOrderPage() {
@@ -163,7 +164,10 @@ export default function TrackOrderPage() {
     const orderNumToSearch = orderNumber.trim();
 
     if (!orderNumToSearch) {
-      setError("Please enter an order number");
+      if (!isAuthenticated) {
+        setError("Please enter an order number");
+      }
+      // If authenticated, OrdersList component will handle showing all orders
       return;
     }
 
@@ -205,6 +209,17 @@ export default function TrackOrderPage() {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleOrderClick = (selectedOrder: Order) => {
+    setOrder(selectedOrder);
+    setOrderNumber(selectedOrder.orderNumber);
+  };
+
+  const handleClearSearch = () => {
+    setOrder(null);
+    setOrderNumber("");
+    setError("");
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -284,24 +299,43 @@ export default function TrackOrderPage() {
                 disabled={isAuthenticated && !!user?.email}
               />
             </div>
-            <Button
-              onClick={handleSearch}
-              disabled={
-                isSearching ||
-                !orderNumber.trim() ||
-                (!isAuthenticated && !email.trim())
-              }
-              size="lg"
-              className="w-full h-12"
-              style={{
-                backgroundColor: "#3D0811",
-                color: "rgba(255, 255, 255, 1)",
-                fontFamily: '"Dream Avenue"',
-              }}
-            >
-              <Search className="h-4 w-4 mr-2" />
-              {isSearching ? "Searching..." : "Track Order"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSearch}
+                disabled={
+                  isSearching ||
+                  (!orderNumber.trim() && !isAuthenticated) ||
+                  (!isAuthenticated && !email.trim())
+                }
+                size="lg"
+                className="flex-1 h-12"
+                style={{
+                  backgroundColor: "#3D0811",
+                  color: "rgba(255, 255, 255, 1)",
+                  fontFamily: '"Dream Avenue"',
+                }}
+              >
+                <Search className="h-4 w-4 mr-2" />
+                {isSearching
+                  ? "Searching..."
+                  : orderNumber.trim()
+                  ? "Track Order"
+                  : isAuthenticated
+                  ? "Show All Orders"
+                  : "Track Order"}
+              </Button>
+              {order && (
+                <Button
+                  onClick={handleClearSearch}
+                  variant="outline"
+                  size="lg"
+                  className="h-12"
+                  style={{ fontFamily: '"Dream Avenue"' }}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
           {error && (
             <p
@@ -488,7 +522,16 @@ export default function TrackOrderPage() {
           </div>
         )}
 
-        {!order && !error && (
+        {/* Orders List (when authenticated and no specific order selected) */}
+        {!order && !error && isAuthenticated && (
+          <OrdersList
+            onOrderClick={handleOrderClick}
+            showDetails={false}
+            title="Your Orders"
+          />
+        )}
+
+        {!order && !error && !isAuthenticated && (
           <div className="text-center py-12 border border-border">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <p
