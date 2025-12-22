@@ -144,11 +144,8 @@ export default function OrdersPage() {
     switch (status.toLowerCase()) {
       case "pending":
         return "bg-yellow-100 text-yellow-800"
-      case "confirmed":
       case "accepted":
         return "bg-purple-100 text-purple-800"
-      case "processing":
-        return "bg-blue-100 text-blue-800"
       case "shipped":
         return "bg-indigo-100 text-indigo-800"
       case "delivered":
@@ -157,6 +154,25 @@ export default function OrdersPage() {
         return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  // Get valid status transitions based on current status
+  const getValidStatusTransitions = (currentStatus: string): string[] => {
+    const status = currentStatus.toLowerCase()
+    switch (status) {
+      case "pending":
+        return ["Pending", "Accepted", "Cancelled"]
+      case "accepted":
+        return ["Accepted", "Shipped", "Cancelled"]
+      case "shipped":
+        return ["Shipped", "Delivered", "Cancelled"]
+      case "delivered":
+        return ["Delivered"] // No transitions allowed
+      case "cancelled":
+        return ["Cancelled"] // No transitions allowed
+      default:
+        return ["Pending", "Accepted", "Shipped", "Delivered", "Cancelled"]
     }
   }
 
@@ -178,8 +194,7 @@ export default function OrdersPage() {
 
   const statusOptions = [
     "Pending",
-    "Confirmed",
-    "Processing",
+    "Accepted",
     "Shipped",
     "Delivered",
     "Cancelled"
@@ -260,11 +275,11 @@ export default function OrdersPage() {
                     <select
                       value={order.status}
                       onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
-                      disabled={updatingStatus === order.id}
-                      className="px-3 py-1.5 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-[#3D0811] disabled:opacity-50"
+                      disabled={updatingStatus === order.id || order.status.toLowerCase() === "delivered" || order.status.toLowerCase() === "cancelled"}
+                      className="px-3 py-1.5 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-[#3D0811] disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ fontFamily: '"Dream Avenue"' }}
                     >
-                      {statusOptions.map((status) => (
+                      {getValidStatusTransitions(order.status).map((status) => (
                         <option key={status} value={status}>
                           {status}
                         </option>
