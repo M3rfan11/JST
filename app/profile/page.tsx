@@ -3,7 +3,6 @@
 import { Header } from "@/components/header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProfileSettings } from "@/components/profile-settings"
-import { OrderHistory } from "@/components/order-history"
 import { SavedAddresses } from "@/components/saved-addresses"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense, useEffect } from "react"
@@ -16,7 +15,9 @@ function ProfileContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { isAuthenticated } = useAuth()
-  const defaultTab = searchParams.get("tab") || "profile"
+  const tabParam = searchParams.get("tab")
+  // Default to profile, or if orders tab is requested, redirect to profile
+  const defaultTab = tabParam === "orders" ? "profile" : (tabParam || "profile")
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -47,20 +48,13 @@ function ProfileContent() {
         <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold mb-8 sm:mb-10" style={{ fontFamily: '"Dream Avenue"' }}>My Account</h1>
 
         <Tabs defaultValue={defaultTab} className="space-y-8 sm:space-y-10">
-          <TabsList className="grid w-full grid-cols-3 h-12 sm:h-14" style={{ backgroundColor: '#3D0811' }}>
+          <TabsList className="grid w-full grid-cols-2 h-12 sm:h-14" style={{ backgroundColor: '#3D0811' }}>
             <TabsTrigger 
               value="profile" 
               className="text-base sm:text-lg font-medium data-[state=active]:bg-white data-[state=active]:text-[#3D0811] text-white" 
               style={{ fontFamily: '"Dream Avenue"' }}
             >
               Profile
-            </TabsTrigger>
-            <TabsTrigger 
-              value="orders" 
-              className="text-base sm:text-lg font-medium data-[state=active]:bg-white data-[state=active]:text-[#3D0811] text-white" 
-              style={{ fontFamily: '"Dream Avenue"' }}
-            >
-              Orders
             </TabsTrigger>
             <TabsTrigger 
               value="addresses" 
@@ -73,10 +67,6 @@ function ProfileContent() {
 
           <TabsContent value="profile">
             <ProfileSettings />
-          </TabsContent>
-
-          <TabsContent value="orders">
-            <OrderHistory />
           </TabsContent>
 
           <TabsContent value="addresses">
