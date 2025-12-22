@@ -12,14 +12,57 @@ interface Product {
   category: string
 }
 
-export function ProductGrid({ limit, categoryId, categoryName }: { limit?: number; categoryId?: number; categoryName?: string }) {
+type SortOption = "default" | "price-low" | "price-high" | "name-asc" | "name-desc"
+
+export function ProductGrid({ 
+  limit, 
+  categoryId, 
+  categoryName,
+  sortBy = "default"
+}: { 
+  limit?: number
+  categoryId?: number
+  categoryName?: string
+  sortBy?: SortOption
+}) {
+  const [allProducts, setAllProducts] = useState<Product[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const applySorting = (productsToSort: Product[], sortOption: SortOption) => {
+    let sorted = [...productsToSort]
+    switch (sortOption) {
+      case "price-low":
+        sorted.sort((a, b) => a.price - b.price)
+        break
+      case "price-high":
+        sorted.sort((a, b) => b.price - a.price)
+        break
+      case "name-asc":
+        sorted.sort((a, b) => a.name.localeCompare(b.name))
+        break
+      case "name-desc":
+        sorted.sort((a, b) => b.name.localeCompare(a.name))
+        break
+      default:
+        // Keep original order
+        break
+    }
+    setProducts(sorted)
+  }
+
+  // Load products when category changes
   useEffect(() => {
     loadProducts()
   }, [categoryId, categoryName])
+
+  // Apply sorting when sortBy changes
+  useEffect(() => {
+    if (allProducts.length > 0) {
+      applySorting(allProducts, sortBy)
+    }
+  }, [sortBy, allProducts])
 
   const loadProducts = async () => {
     try {
@@ -40,18 +83,10 @@ export function ProductGrid({ limit, categoryId, categoryName }: { limit?: numbe
         productsList = response.data
       }
       
-      // Filter by category if categoryId is provided (only if categoryName is not provided, since backend handles categoryName)
-      if (categoryId && !categoryName) {
-        productsList = productsList.filter((p: any) => {
-          // Check primary categoryId (legacy)
-          if (p.categoryId === categoryId) return true
-          // Check categoryIds array (multiple categories support)
-          if (p.categoryIds && Array.isArray(p.categoryIds) && p.categoryIds.length > 0) {
-            return p.categoryIds.includes(categoryId)
-          }
-          return false
-        })
-      }
+      // Note: Category filtering is handled by the backend API when categoryName is passed
+      // The API doesn't return categoryId/categoryIds in the response, so we rely on backend filtering
+      // If categoryId is provided but categoryName is not, we can't filter on frontend
+      // This should be handled by passing categoryName from the selected category
       
       // Map API response to ProductCard format
       const mappedProducts: Product[] = productsList
@@ -117,7 +152,8 @@ export function ProductGrid({ limit, categoryId, categoryName }: { limit?: numbe
           }
         })
       
-      setProducts(mappedProducts)
+      setAllProducts(mappedProducts)
+      applySorting(mappedProducts, sortBy)
     } catch (err: any) {
       console.error("Error loading products:", err)
       setError(err.message || "Failed to load products")

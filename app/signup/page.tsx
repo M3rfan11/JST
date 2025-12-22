@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Header } from "@/components/header"
@@ -23,6 +23,17 @@ export default function SignupPage() {
     confirmPassword: "",
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [showBackButton, setShowBackButton] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Show back button when scrolled down more than 100px
+      setShowBackButton(window.scrollY > 100)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -78,13 +89,20 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen">
       <Header />
-      <div className="container mx-auto px-4 sm:px-6 py-8 md:py-12 max-w-md">
-        <Button variant="ghost" asChild className="mb-6" style={{ fontFamily: '"Dream Avenue"' }}>
-          <Link href="/">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Home
-          </Link>
-        </Button>
+      <div className="container mx-auto px-4 sm:px-6 py-8 md:py-12 max-w-md pt-28">
+        {showBackButton && (
+          <Button 
+            variant="ghost" 
+            asChild 
+            className="mb-6 transition-opacity duration-300" 
+            style={{ fontFamily: '"Dream Avenue"' }}
+          >
+            <Link href="/">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Home
+            </Link>
+          </Button>
+        )}
 
         <div className="space-y-6">
           <div>

@@ -78,11 +78,11 @@ export default function CollectionsPage() {
       <Header />
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-24">
-        <Button variant="ghost" asChild className="mb-6">
-          <Link href="/">
+      <section className="container mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-24 pt-40 mt-12">
+        <Button variant="ghost" asChild className="mb-6" style={{ fontFamily: '"Dream Avenue"' }}>
+          <Link href="/" style={{ fontFamily: '"Dream Avenue"' }}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Home
+            <span style={{ fontFamily: '"Dream Avenue"' }}>Back to Home</span>
           </Link>
         </Button>
 

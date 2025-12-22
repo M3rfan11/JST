@@ -7,6 +7,7 @@ import { AuthProvider } from "@/components/auth-provider"
 import { SuperAdminGuard } from "@/components/superadmin-guard"
 import { Toaster } from "@/components/ui/toaster"
 import { ShippingTicker } from "@/components/shipping-ticker"
+import { Footer } from "@/components/footer"
 
 export const metadata: Metadata = {
   title: "Thudarum - Modern Fashion",
@@ -44,6 +45,7 @@ export default function RootLayout({
             <CartProvider>
               <ShippingTicker />
               {children}
+              <Footer />
               <Toaster />
             </CartProvider>
           </SuperAdminGuard>
