@@ -48,3 +48,4 @@ backend/Api/*.db-shm
 backend/Api/*.db-wal
 backend/Api/*.log
 backend/Api/appsettings.Development.json
+*.MOV
