@@ -84,21 +84,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex">
         {/* Sidebar */}
         <aside
-          className={`fixed lg:static inset-y-0 left-0 z-40 w-64 transition-transform duration-300 ${
+          className={`fixed inset-y-0 left-0 z-40 w-64 h-screen transition-transform duration-300 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           }`}
           style={{ backgroundColor: '#3D0811' }}
         >
           <div className="h-full flex flex-col">
             {/* Logo/Title */}
-            <div className="p-6 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+            <div className="p-6 border-b flex-shrink-0" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
               <Link href="/admin" className="text-white text-2xl font-semibold" style={{ fontFamily: '"Dream Avenue"' }}>
                 JST Admin
               </Link>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto p-4">
+            <nav className="p-4 flex-shrink-0" style={{ backgroundColor: '#3D0811' }}>
               <ul className="space-y-2">
                 {menuItems.map((item) => {
                   const Icon = item.icon
@@ -125,28 +125,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </li>
                   )
                 })}
+                
+                {/* Footer Actions - Moved inside nav */}
+                <li className="border-t pt-2 mt-2" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+                  <Link
+                    href="/"
+                    onClick={() => setSidebarOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                    style={{ fontFamily: '"Dream Avenue"' }}
+                  >
+                    <span>← Back to Site</span>
+                  </Link>
+                </li>
+                <li>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 px-4 py-3 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors w-full text-left"
+                    style={{ fontFamily: '"Dream Avenue"' }}
+                  >
+                    <LogOut className="h-5 w-5" />
+                    <span>Logout</span>
+                  </button>
+                </li>
               </ul>
             </nav>
-
-            {/* Footer Actions */}
-            <div className="p-4 border-t" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-              <Link
-                href="/"
-                className="flex items-center gap-3 px-4 py-3 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors mb-2"
-                style={{ fontFamily: '"Dream Avenue"' }}
-              >
-                <span>← Back to Site</span>
-              </Link>
-              <Button
-                onClick={handleLogout}
-                variant="ghost"
-                className="w-full justify-start text-white/70 hover:text-white hover:bg-white/10"
-                style={{ fontFamily: '"Dream Avenue"' }}
-              >
-                <LogOut className="h-5 w-5 mr-3" />
-                Logout
-              </Button>
-            </div>
+            
+            {/* Empty space with main background color */}
+            <div className="flex-1" style={{ backgroundColor: 'rgba(206, 180, 157, 1)' }}></div>
           </div>
         </aside>
 
@@ -159,7 +164,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         )}
 
         {/* Main Content */}
-        <main className="flex-1 lg:ml-0 pt-16 lg:pt-0">
+        <main className="flex-1 lg:ml-64 pt-16 lg:pt-0">
           <div className="p-6 lg:p-8">
             {children}
           </div>

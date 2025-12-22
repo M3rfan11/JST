@@ -36,9 +36,8 @@ export default function CheckoutPage() {
 
   const discountAmount = promoCode ? promoCode.discountAmount : 0
   const subtotalAfterDiscount = total - discountAmount
-  const shipping = subtotalAfterDiscount >= 3000 ? 0 : 15
-  const tax = subtotalAfterDiscount * 0.08
-  const orderTotal = subtotalAfterDiscount + shipping + tax
+  const shipping = subtotalAfterDiscount >= 3000 ? 0 : 120
+  const orderTotal = subtotalAfterDiscount + shipping
 
   return (
     <div className="min-h-screen bg-background">
@@ -115,10 +114,6 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Shipping</span>
                   <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{shipping === 0 ? "Free" : `${shipping.toFixed(2)} EGP`}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Tax</span>
-                  <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{tax.toFixed(2)} EGP</span>
                 </div>
               </div>
 

@@ -324,15 +324,40 @@ export default function AdminDashboard() {
                 No low stock items
               </p>
             ) : (
-              lowStockItems.slice(0, 5).map((item) => (
+              lowStockItems.slice(0, 5).map((item) => {
+                // Parse variant attributes if it's a variant
+                let variantDisplay = null
+                if (item.type === "Variant" && item.variantAttributes) {
+                  try {
+                    // Try to parse as JSON if it's a string
+                    const attrs = typeof item.variantAttributes === 'string' 
+                      ? JSON.parse(item.variantAttributes) 
+                      : item.variantAttributes
+                    
+                    // Format as "Key: Value" pairs
+                    if (typeof attrs === 'object' && attrs !== null) {
+                      const formatted = Object.entries(attrs)
+                        .map(([key, value]) => `${key}: ${value}`)
+                        .join(', ')
+                      variantDisplay = formatted
+                    } else {
+                      variantDisplay = String(item.variantAttributes)
+                    }
+                  } catch {
+                    // If parsing fails, just display as string
+                    variantDisplay = String(item.variantAttributes)
+                  }
+                }
+                
+                return (
                 <div key={`${item.type}-${item.id}`} className="border-b border-border pb-3 last:border-0">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
                         {item.productName}
-                        {item.type === "Variant" && item.variantAttributes && (
+                        {variantDisplay && (
                           <span className="text-xs text-muted-foreground ml-2">
-                            ({item.variantAttributes})
+                            ({variantDisplay})
                           </span>
                         )}
                       </p>
@@ -342,11 +367,6 @@ export default function AdminDashboard() {
                           <span className="ml-2">(Min: {item.minimumStockLevel})</span>
                         )}
                       </p>
-                      {item.warehouseName && (
-                        <p className="text-xs text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
-                          {item.warehouseName}
-                        </p>
-                      )}
                     </div>
                     <span
                       className={`px-2 py-1 rounded text-xs ${
@@ -362,7 +382,8 @@ export default function AdminDashboard() {
                     </span>
                   </div>
                 </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>

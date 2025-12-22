@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Image from "next/image"
 import { Button } from "./ui/button"
 import { useCart } from "./cart-provider"
@@ -30,33 +30,75 @@ export function ProductDetail({ product }: { product: Product }) {
   const { toast } = useToast()
 
   // Get the current price based on selected size (variant price if available)
-  const getCurrentPrice = () => {
-    if (!selectedSize || !product.variants || !Array.isArray(product.variants)) {
+  // Use useMemo to ensure it updates reactively when selectedSize or variants change
+  const currentPrice = useMemo(() => {
+    // If no size is selected, return base product price
+    if (!selectedSize) {
+      console.log("No size selected, using base price:", product.price)
       return product.price
     }
 
+    // If no variants available, return base product price
+    if (!product.variants || !Array.isArray(product.variants) || product.variants.length === 0) {
+      console.log("No variants available, using base price:", product.price)
+      return product.price
+    }
+
+    console.log("Calculating price for selected size:", selectedSize)
+    console.log("Available variants:", product.variants.map((v: any) => ({
+      id: v.id,
+      attributes: v.attributes,
+      priceOverride: v.priceOverride || v.PriceOverride
+    })))
+
+    // Find the variant that matches the selected size
     const matchingVariant = product.variants.find((variant: any) => {
-      if (!variant.attributes) return false
+      if (!variant || !variant.attributes) {
+        console.log("Variant missing or no attributes:", variant)
+        return false
+      }
+      
       try {
         const attrs = typeof variant.attributes === 'string' 
           ? JSON.parse(variant.attributes) 
           : variant.attributes
+        
         if (typeof attrs === 'object' && attrs !== null) {
-          const size = attrs['Size'] || attrs['size'] || attrs['SIZE']
-          return size === selectedSize
+          // Check for Size attribute in various formats
+          const size = attrs['Size'] || attrs['size'] || attrs['SIZE'] || ''
+          const matches = size === selectedSize
+          console.log(`Variant size "${size}" matches selected "${selectedSize}":`, matches)
+          return matches
         }
-      } catch {
+      } catch (error) {
+        console.error("Error parsing variant attributes:", error, variant.attributes)
         return false
       }
       return false
     })
 
-    if (matchingVariant && matchingVariant.priceOverride && matchingVariant.priceOverride > 0) {
-      return matchingVariant.priceOverride
+    console.log("Matching variant found:", matchingVariant)
+
+    // If variant found and has priceOverride, use it
+    if (matchingVariant) {
+      // Check both camelCase and PascalCase (API might return either)
+      const priceOverride = matchingVariant.priceOverride || matchingVariant.PriceOverride
+      console.log("Variant priceOverride:", priceOverride)
+      
+      // If priceOverride exists and is greater than 0, use it
+      if (priceOverride != null && priceOverride > 0) {
+        console.log("Using variant price:", priceOverride)
+        return Number(priceOverride)
+      } else {
+        console.log("Variant has no priceOverride, using base price:", product.price)
+      }
+    } else {
+      console.log("No matching variant found, using base price:", product.price)
     }
 
+    // Fallback to base product price
     return product.price
-  }
+  }, [selectedSize, product.price, product.variants])
 
   const handleAddToCart = () => {
     if (!selectedSize) {
@@ -187,7 +229,7 @@ export function ProductDetail({ product }: { product: Product }) {
             <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold mb-3 sm:mb-4 text-balance" style={{ fontFamily: '"Dream Avenue"' }}>
               {product.name}
             </h1>
-            <p className="text-xl sm:text-2xl font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{getCurrentPrice().toFixed(2)} EGP</p>
+            <p className="text-xl sm:text-2xl font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{currentPrice.toFixed(2)} EGP</p>
           </div>
 
           <p className="text-sm sm:text-base text-muted-foreground leading-relaxed mb-6 sm:mb-8" style={{ fontFamily: '"Dream Avenue"' }}>

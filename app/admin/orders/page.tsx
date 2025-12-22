@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Trash2, ChevronDown } from "lucide-react"
+import { Search, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api } from "@/lib/api-client"
@@ -113,25 +113,6 @@ export default function OrdersPage() {
     }
   }
 
-  const handleDelete = async (orderId: number, orderNumber: string) => {
-    if (!confirm(`Are you sure you want to delete order ${orderNumber}?`)) {
-      return
-    }
-    
-    try {
-      // Note: Delete endpoint may need to be added to API
-      toast({
-        title: "Info",
-        description: "Delete functionality coming soon.",
-      })
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete order.",
-        variant: "destructive",
-      })
-    }
-  }
 
   const filteredOrders = orders.filter(
     (order) =>
@@ -285,14 +266,6 @@ export default function OrdersPage() {
                         </option>
                       ))}
                     </select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(order.id, order.orderNumber)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
 

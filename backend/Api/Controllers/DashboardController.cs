@@ -267,7 +267,9 @@ public class DashboardController : ControllerBase
                 }
                 
                 // Skip products that have active variants - we'll check variant inventories instead
-                var hasActiveVariants = product.Variants != null && product.Variants.Any(v => v.IsActive);
+                // Query variants directly from database to ensure we get accurate results (fix for variants being null after stock updates)
+                var hasActiveVariants = await _context.ProductVariants
+                    .AnyAsync(v => v.ProductId == product.Id && v.IsActive);
                 if (hasActiveVariants)
                 {
                     continue;
@@ -351,7 +353,7 @@ public class DashboardController : ControllerBase
             // Be very lenient - include all variants where product exists and isn't AlwaysAvailable
             var allActiveVariants = await _context.ProductVariants
                 .Include(pv => pv.Product)
-                .Where(pv => pv.Product != null && !pv.Product.AlwaysAvailable)
+                .Where(pv => pv.IsActive && pv.Product != null && pv.Product.IsActive && !pv.Product.AlwaysAvailable)
                 .ToListAsync();
             
             _logger.LogInformation($"Found {allActiveVariants.Count} variants to check for low stock (products not AlwaysAvailable)");

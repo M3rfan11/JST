@@ -74,9 +74,12 @@ export default function ProductPage() {
         // Get price - use first variant's priceOverride if available, otherwise use product price
         let price = productData.price || 0
         if (productData.variants && productData.variants.length > 0) {
-          const variantWithPrice = productData.variants.find((v: any) => v.priceOverride && v.priceOverride > 0)
+          const variantWithPrice = productData.variants.find((v: any) => {
+            const priceOverride = v.priceOverride || v.PriceOverride
+            return priceOverride && priceOverride > 0
+          })
           if (variantWithPrice) {
-            price = variantWithPrice.priceOverride
+            price = variantWithPrice.priceOverride || variantWithPrice.PriceOverride || price
           }
         }
 

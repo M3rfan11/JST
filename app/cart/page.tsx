@@ -278,11 +278,7 @@ export default function CartPage() {
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Shipping</span>
-                  <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{subtotalAfterDiscount >= 200 ? "Free" : "15.00 EGP"}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Tax</span>
-                  <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{(subtotalAfterDiscount * 0.08).toFixed(2)} EGP</span>
+                  <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{subtotalAfterDiscount >= 3000 ? "Free" : "120.00 EGP"}</span>
                 </div>
               </div>
 
@@ -292,8 +288,7 @@ export default function CartPage() {
                   <span>
                     {(
                       subtotalAfterDiscount +
-                      (subtotalAfterDiscount >= 200 ? 0 : 15) +
-                      subtotalAfterDiscount * 0.08
+                      (subtotalAfterDiscount >= 3000 ? 0 : 120)
                     ).toFixed(2)} EGP
                   </span>
                 </div>

@@ -119,10 +119,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Map backend cart item to frontend cart item
   const mapBackendToFrontend = async (backendItem: BackendCartItem): Promise<CartItem> => {
-    // Try to get product details to extract size/variant info
-    // For now, we'll use a default size since backend doesn't store variant info
-    // In a real scenario, you might want to store variant info separately or in the cart
+    // Try to get size from localStorage mapping (productId -> size)
+    // This preserves size information that was stored when adding to cart
     let size = "Default"
+    try {
+      const sizeMapping = localStorage.getItem("cartSizeMapping")
+      if (sizeMapping) {
+        const mapping = JSON.parse(sizeMapping)
+        // Try to find size by cartItemId first, then by productId
+        const sizeByCartItem = mapping[`cartItem_${backendItem.id}`]
+        const sizeByProduct = mapping[`product_${backendItem.productId}`]
+        size = sizeByCartItem || sizeByProduct || "Default"
+      }
+    } catch (error) {
+      console.error("Error reading size mapping from localStorage:", error)
+    }
+    
     let image = '/placeholder.svg'
     
     try {
@@ -310,14 +322,37 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items, isAuthenticated, toast])
 
   const addItem = async (item: Omit<CartItem, "quantity">) => {
+    // Store size mapping in localStorage for both authenticated and unauthenticated users
+    try {
+      const sizeMapping = JSON.parse(localStorage.getItem("cartSizeMapping") || "{}")
+      // Store by productId for now (we'll update with cartItemId after backend response)
+      sizeMapping[`product_${item.productId || item.id}`] = item.size
+      localStorage.setItem("cartSizeMapping", JSON.stringify(sizeMapping))
+    } catch (error) {
+      console.error("Error storing size mapping:", error)
+    }
+
     if (isAuthenticated && item.productId) {
       // Add to backend
       setIsLoading(true)
       try {
-        await api.cart.addItem({
+        const response = await api.cart.addItem({
           productId: item.productId,
           quantity: 1,
-        })
+        }) as any
+        
+        // Update size mapping with cartItemId if available
+        if (response && response.id) {
+          try {
+            const sizeMapping = JSON.parse(localStorage.getItem("cartSizeMapping") || "{}")
+            sizeMapping[`cartItem_${response.id}`] = item.size
+            // Also keep productId mapping as fallback
+            sizeMapping[`product_${item.productId}`] = item.size
+            localStorage.setItem("cartSizeMapping", JSON.stringify(sizeMapping))
+          } catch (error) {
+            console.error("Error updating size mapping with cartItemId:", error)
+          }
+        }
         
         // Reload cart from backend
         await loadCartFromBackend()
@@ -362,6 +397,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const removeItem = async (id: string, size: string) => {
     const itemToRemove = items.find((i) => i.id === id && i.size === size)
+    
+    // Clean up size mapping from localStorage
+    if (itemToRemove) {
+      try {
+        const sizeMapping = JSON.parse(localStorage.getItem("cartSizeMapping") || "{}")
+        if (itemToRemove.cartItemId) {
+          delete sizeMapping[`cartItem_${itemToRemove.cartItemId}`]
+        }
+        if (itemToRemove.productId) {
+          delete sizeMapping[`product_${itemToRemove.productId}`]
+        }
+        localStorage.setItem("cartSizeMapping", JSON.stringify(sizeMapping))
+      } catch (error) {
+        console.error("Error cleaning up size mapping:", error)
+      }
+    }
     
     if (isAuthenticated && itemToRemove?.cartItemId) {
       // Remove from backend

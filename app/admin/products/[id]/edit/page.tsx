@@ -500,7 +500,7 @@ export default function EditProductPage() {
                   typeof v.attributes === "string"
                     ? v.attributes
                     : JSON.stringify(v.attributes || {}),
-                priceOverride: v.priceOverride || null,
+                priceOverride: null,
                 sku: v.sku || null,
                 imageUrl: v.imageUrl || null,
                 isActive: v.isActive !== false,
@@ -584,7 +584,7 @@ export default function EditProductPage() {
               color: color,
               colorHex: variant.colorHex,
               attributes: attributesString,
-              priceOverride: variant.priceOverride || null,
+              priceOverride: null,
               sku: variant.sku || null,
               imageUrl: variant.imageUrl || null,
               isActive: variant.isActive !== false,
@@ -604,7 +604,7 @@ export default function EditProductPage() {
                 color: color || "",
                 colorHex: variant.colorHex,
                 attributes: attributesString,
-                priceOverride: variant.priceOverride || null,
+                priceOverride: null,
                 sku: variant.sku || null,
                 imageUrl: variant.imageUrl || null,
                 isActive: variant.isActive !== false ? true : false,
@@ -1209,23 +1209,6 @@ export default function EditProductPage() {
                         {editingVariantIndex === index ? (
                           <div className="space-y-2">
                             <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="Price Override (optional)"
-                              value={variant.priceOverride?.toString() || ""}
-                              onChange={(e) => {
-                                const updated = [...variants];
-                                updated[index] = {
-                                  ...updated[index],
-                                  priceOverride: e.target.value
-                                    ? parseFloat(e.target.value)
-                                    : undefined,
-                                };
-                                setVariants(updated);
-                              }}
-                              style={{ fontFamily: '"Dream Avenue"' }}
-                            />
-                            <Input
                               placeholder="SKU (optional)"
                               value={variant.sku || ""}
                               onChange={(e) => {
@@ -1242,7 +1225,62 @@ export default function EditProductPage() {
                               <Button
                                 type="button"
                                 size="sm"
-                                onClick={() => setEditingVariantIndex(null)}
+                                onClick={async () => {
+                                  try {
+                                    const variantToSave = variants[index];
+                                    if (variantToSave.id) {
+                                      // Update existing variant
+                                      const attributesString =
+                                        typeof variantToSave.attributes === "string"
+                                          ? variantToSave.attributes
+                                          : JSON.stringify(variantToSave.attributes || {});
+                                      
+                                      let color = variantToSave.color || "";
+                                      if (
+                                        !color &&
+                                        variantToSave.attributes &&
+                                        typeof variantToSave.attributes === "object"
+                                      ) {
+                                        color =
+                                          variantToSave.attributes["Color"] ||
+                                          variantToSave.attributes["color"] ||
+                                          Object.values(variantToSave.attributes)[0] ||
+                                          "";
+                                      }
+
+                                      await api.productVariants.update(variantToSave.id, {
+                                        color: color,
+                                        colorHex: variantToSave.colorHex,
+                                        attributes: attributesString,
+                                        priceOverride: null,
+                                        sku: variantToSave.sku || null,
+                                        imageUrl: variantToSave.imageUrl || null,
+                                        isActive: variantToSave.isActive !== false,
+                                      });
+                                      
+                                      toast({
+                                        title: "Success",
+                                        description: "Variant updated successfully",
+                                      });
+                                    } else {
+                                      toast({
+                                        title: "Error",
+                                        description: "Cannot save variant without ID. Please save the product first.",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                    setEditingVariantIndex(null);
+                                    // Reload product to get latest data
+                                    await loadProduct();
+                                  } catch (error: any) {
+                                    console.error("Error saving variant:", error);
+                                    toast({
+                                      title: "Error",
+                                      description: error.message || "Failed to save variant",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
                                 style={{
                                   backgroundColor: "#3D0811",
                                   color: "white",
@@ -1302,14 +1340,6 @@ export default function EditProductPage() {
                                   type="button"
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => setEditingVariantIndex(index)}
-                                >
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
                                   onClick={() => {
                                     const updated = variants.filter(
                                       (_, i) => i !== index
@@ -1321,14 +1351,6 @@ export default function EditProductPage() {
                                 </Button>
                               </div>
                             </div>
-                            {variant.priceOverride && (
-                              <p
-                                className="text-sm text-muted-foreground"
-                                style={{ fontFamily: '"Dream Avenue"' }}
-                              >
-                                Price: EGP {variant.priceOverride.toFixed(2)}
-                              </p>
-                            )}
                             {variant.sku && (
                               <p
                                 className="text-sm text-muted-foreground"

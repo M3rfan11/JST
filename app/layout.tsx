@@ -6,29 +6,16 @@ import { CartProvider } from "@/components/cart-provider"
 import { AuthProvider } from "@/components/auth-provider"
 import { SuperAdminGuard } from "@/components/superadmin-guard"
 import { Toaster } from "@/components/ui/toaster"
-import { ShippingTicker } from "@/components/shipping-ticker"
-import { Footer } from "@/components/footer"
+import { ConditionalShippingTicker } from "@/components/conditional-shipping-ticker"
+import { ConditionalFooter } from "@/components/conditional-footer"
 
 export const metadata: Metadata = {
-  title: "Thudarum - Modern Fashion",
+  title: "JST - Modern Fashion",
   description: "Minimalist contemporary fashion for the discerning individual",
   generator: "v0.app",
   icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
+    icon: "/logo2.png",
+    apple: "/logo2.png",
   },
 }
 
@@ -43,9 +30,9 @@ export default function RootLayout({
         <AuthProvider>
           <SuperAdminGuard>
             <CartProvider>
-              <ShippingTicker />
+              <ConditionalShippingTicker />
               {children}
-              <Footer />
+              <ConditionalFooter />
               <Toaster />
             </CartProvider>
           </SuperAdminGuard>
