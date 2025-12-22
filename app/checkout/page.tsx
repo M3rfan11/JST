@@ -9,7 +9,7 @@ import Image from "next/image"
 import { ArrowLeft } from "lucide-react"
 
 export default function CheckoutPage() {
-  const { items, total } = useCart()
+  const { items, total, promoCode } = useCart()
 
   if (items.length === 0) {
     return (
@@ -34,9 +34,11 @@ export default function CheckoutPage() {
     )
   }
 
-  const shipping = total >= 3000 ? 0 : 15
-  const tax = total * 0.08
-  const orderTotal = total + shipping + tax
+  const discountAmount = promoCode ? promoCode.discountAmount : 0
+  const subtotalAfterDiscount = total - discountAmount
+  const shipping = subtotalAfterDiscount >= 3000 ? 0 : 15
+  const tax = subtotalAfterDiscount * 0.08
+  const orderTotal = subtotalAfterDiscount + shipping + tax
 
   return (
     <div className="min-h-screen bg-background">
@@ -100,6 +102,16 @@ export default function CheckoutPage() {
                   <span className="text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Subtotal</span>
                   <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{total.toFixed(2)} EGP</span>
                 </div>
+                {promoCode && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span style={{ fontFamily: '"Dream Avenue"' }}>
+                      Discount ({promoCode.code})
+                    </span>
+                    <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>
+                      -{discountAmount.toFixed(2)} EGP
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Shipping</span>
                   <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{shipping === 0 ? "Free" : `${shipping.toFixed(2)} EGP`}</span>

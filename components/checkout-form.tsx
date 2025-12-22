@@ -1,28 +1,35 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "./ui/button"
-import { Input } from "./ui/input"
-import { Label } from "./ui/label"
-import { useCart } from "./cart-provider"
-import { useAuth } from "./auth-provider"
-import { useToast } from "@/hooks/use-toast"
-import { CreditCard, Lock } from "lucide-react"
-import { api } from "@/lib/api-client"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { useCart } from "./cart-provider";
+import { useAuth } from "./auth-provider";
+import { useToast } from "@/hooks/use-toast";
+import { CreditCard, Lock } from "lucide-react";
+import { api } from "@/lib/api-client";
 
 interface CheckoutFormProps {
-  total: number
+  total: number;
 }
 
 export function CheckoutForm({ total }: CheckoutFormProps) {
-  const router = useRouter()
-  const { items, clearCart } = useCart()
-  const { user, isAuthenticated } = useAuth()
-  const { toast } = useToast()
-  const [isProcessing, setIsProcessing] = useState(false)
+  const router = useRouter();
+  const { items, clearCart, promoCode, setPromoCode } = useCart();
+  const { user, isAuthenticated } = useAuth();
+
+  // Clear promocode if user is not authenticated (guest users can't use promocodes)
+  useEffect(() => {
+    if (!isAuthenticated && promoCode) {
+      setPromoCode(null);
+    }
+  }, [isAuthenticated, promoCode, setPromoCode]);
+  const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const [formData, setFormData] = useState({
     // Contact
@@ -43,15 +50,17 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
     expiryDate: "",
     cvv: "",
     paymentMethod: "Cash on Delivery", // Default payment method
-  })
+  });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
-  }
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsProcessing(true)
+    e.preventDefault();
+    setIsProcessing(true);
 
     try {
       // Build customer address
@@ -61,40 +70,42 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
         formData.city,
         formData.state,
         formData.zipCode,
-        formData.country
-      ].filter(Boolean)
-      const fullAddress = addressParts.join(", ")
+        formData.country,
+      ].filter(Boolean);
+      const fullAddress = addressParts.join(", ");
 
       // Build customer name
-      const customerName = `${formData.firstName} ${formData.lastName}`.trim()
+      const customerName = `${formData.firstName} ${formData.lastName}`.trim();
 
       // Map cart items to order items
       // Note: We need productId from the cart items. If not available, we'll need to fetch it.
       // For now, we'll try to extract it from the id if it's numeric, or fetch products
-      const orderItems = items.map(item => {
+      const orderItems = items.map((item) => {
         // Try to get productId from item (if it was stored)
-        const productId = item.productId || (item.id && !isNaN(Number(item.id)) ? Number(item.id) : null)
-        
+        const productId =
+          item.productId ||
+          (item.id && !isNaN(Number(item.id)) ? Number(item.id) : null);
+
         if (!productId) {
-          throw new Error(`Product ID not found for item: ${item.name}`)
+          throw new Error(`Product ID not found for item: ${item.name}`);
         }
 
         return {
           productId: productId,
           quantity: item.quantity,
           unitPrice: item.price,
-          unit: "piece"
-        }
-      })
+          unit: "piece",
+        };
+      });
 
       if (orderItems.length === 0) {
         toast({
           title: "Error",
           description: "Your cart is empty.",
           variant: "destructive",
-        })
-        setIsProcessing(false)
-        return
+        });
+        setIsProcessing(false);
+        return;
       }
 
       // Prepare order request
@@ -106,67 +117,86 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
         items: orderItems,
         notes: `Payment Method: ${formData.paymentMethod}`,
         paymentMethod: formData.paymentMethod,
+        promoCode: promoCode?.code || undefined, // Include promo code from cart if available
         useCartItems: false, // We're providing items directly
-      }
+      };
 
       // Create order via API
       // Check if user has Customer role - if not, use guest endpoint
-      const isCustomer = user?.roles?.includes("Customer") || false
-      let orderResponse
-      
+      const isCustomer = user?.roles?.includes("Customer") || false;
+      let orderResponse: any;
+
       if (isAuthenticated && user && isCustomer) {
         // Authenticated Customer - use authenticated endpoint
         try {
-          orderResponse = await api.customerOrders.createOrder(orderRequest)
+          orderResponse = (await api.customerOrders.createOrder(
+            orderRequest
+          )) as any;
         } catch (error: any) {
           // If authenticated endpoint fails (e.g., SuperAdmin), fall back to guest
           if (error.status === 403) {
-            orderResponse = await api.customerOrders.createGuestOrder(orderRequest)
+            orderResponse = (await api.customerOrders.createGuestOrder(
+              orderRequest
+            )) as any;
           } else {
-            throw error
+            throw error;
           }
         }
       } else {
         // Guest user or non-Customer (like SuperAdmin) - use guest endpoint
-        orderResponse = await api.customerOrders.createGuestOrder(orderRequest)
+        orderResponse = (await api.customerOrders.createGuestOrder(
+          orderRequest
+        )) as any;
       }
 
-      // Clear cart
-      clearCart()
+      // Clear cart and promo code
+      clearCart();
+      setPromoCode(null);
 
       // Show success message
-      const orderNumber = orderResponse.orderNumber || orderResponse.order_number || "N/A"
+      const orderNumber =
+        orderResponse?.orderNumber || orderResponse?.order_number || "N/A";
       toast({
         title: "Order placed successfully!",
         description: `Order #${orderNumber} has been created.`,
-      })
+      });
 
-      // Redirect based on authentication
-      if (isAuthenticated) {
-        router.push("/profile?tab=orders")
-      } else {
-        router.push(`/track?orderId=${orderNumber}`)
-      }
+      // Always redirect to track page with order number
+      router.push(
+        `/track?orderId=${orderNumber}&email=${encodeURIComponent(
+          formData.email
+        )}`
+      );
     } catch (error: any) {
-      console.error("Error creating order:", error)
+      console.error("Error creating order:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to place order. Please try again.",
+        description:
+          error.message || "Failed to place order. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
       {/* Contact Information */}
       <div>
-        <h2 className="font-serif text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ fontFamily: '"Dream Avenue"' }}>Contact Information</h2>
+        <h2
+          className="font-serif text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+          style={{ fontFamily: '"Dream Avenue"' }}
+        >
+          Contact Information
+        </h2>
         <div className="space-y-3 sm:space-y-4">
           <div>
-            <Label htmlFor="email" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+            <Label
+              htmlFor="email"
+              className="text-sm"
+              style={{ fontFamily: '"Dream Avenue"' }}
+            >
               Email
             </Label>
             <Input
@@ -185,11 +215,20 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
 
       {/* Shipping Address */}
       <div>
-        <h2 className="font-serif text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ fontFamily: '"Dream Avenue"' }}>Shipping Address</h2>
+        <h2
+          className="font-serif text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+          style={{ fontFamily: '"Dream Avenue"' }}
+        >
+          Shipping Address
+        </h2>
         <div className="space-y-3 sm:space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <Label htmlFor="firstName" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+              <Label
+                htmlFor="firstName"
+                className="text-sm"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              >
                 First Name
               </Label>
               <Input
@@ -202,7 +241,11 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
               />
             </div>
             <div>
-              <Label htmlFor="lastName" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+              <Label
+                htmlFor="lastName"
+                className="text-sm"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              >
                 Last Name
               </Label>
               <Input
@@ -217,7 +260,11 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
           </div>
 
           <div>
-            <Label htmlFor="address" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+            <Label
+              htmlFor="address"
+              className="text-sm"
+              style={{ fontFamily: '"Dream Avenue"' }}
+            >
               Address
             </Label>
             <Input
@@ -232,7 +279,11 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
           </div>
 
           <div>
-            <Label htmlFor="apartment" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+            <Label
+              htmlFor="apartment"
+              className="text-sm"
+              style={{ fontFamily: '"Dream Avenue"' }}
+            >
               Apartment, suite, etc. (optional)
             </Label>
             <Input
@@ -246,13 +297,28 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <Label htmlFor="city" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+              <Label
+                htmlFor="city"
+                className="text-sm"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              >
                 City
               </Label>
-              <Input id="city" name="city" required value={formData.city} onChange={handleChange} className="mt-1.5" />
+              <Input
+                id="city"
+                name="city"
+                required
+                value={formData.city}
+                onChange={handleChange}
+                className="mt-1.5"
+              />
             </div>
             <div>
-              <Label htmlFor="state" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+              <Label
+                htmlFor="state"
+                className="text-sm"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              >
                 State / Province
               </Label>
               <Input
@@ -268,7 +334,11 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <Label htmlFor="country" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+              <Label
+                htmlFor="country"
+                className="text-sm"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              >
                 Country
               </Label>
               <Input
@@ -281,7 +351,11 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
               />
             </div>
             <div>
-              <Label htmlFor="zipCode" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+              <Label
+                htmlFor="zipCode"
+                className="text-sm"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              >
                 ZIP / Postal Code
               </Label>
               <Input
@@ -296,7 +370,11 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
           </div>
 
           <div>
-            <Label htmlFor="phone" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+            <Label
+              htmlFor="phone"
+              className="text-sm"
+              style={{ fontFamily: '"Dream Avenue"' }}
+            >
               Phone
             </Label>
             <Input
@@ -314,10 +392,19 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
 
       {/* Payment Information */}
       <div>
-        <h2 className="font-serif text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ fontFamily: '"Dream Avenue"' }}>Payment Information</h2>
+        <h2
+          className="font-serif text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+          style={{ fontFamily: '"Dream Avenue"' }}
+        >
+          Payment Information
+        </h2>
         <div className="space-y-3 sm:space-y-4">
           <div>
-            <Label htmlFor="paymentMethod" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+            <Label
+              htmlFor="paymentMethod"
+              className="text-sm"
+              style={{ fontFamily: '"Dream Avenue"' }}
+            >
               Payment Method
             </Label>
             <select
@@ -337,7 +424,11 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
           {formData.paymentMethod === "Credit Card" && (
             <>
               <div>
-                <Label htmlFor="cardNumber" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+                <Label
+                  htmlFor="cardNumber"
+                  className="text-sm"
+                  style={{ fontFamily: '"Dream Avenue"' }}
+                >
                   Card Number
                 </Label>
                 <div className="relative mt-1.5">
@@ -355,7 +446,11 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
               </div>
 
               <div>
-                <Label htmlFor="cardName" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+                <Label
+                  htmlFor="cardName"
+                  className="text-sm"
+                  style={{ fontFamily: '"Dream Avenue"' }}
+                >
                   Name on Card
                 </Label>
                 <Input
@@ -370,7 +465,11 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
 
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <Label htmlFor="expiryDate" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+                  <Label
+                    htmlFor="expiryDate"
+                    className="text-sm"
+                    style={{ fontFamily: '"Dream Avenue"' }}
+                  >
                     Expiry Date
                   </Label>
                   <Input
@@ -385,7 +484,11 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cvv" className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+                  <Label
+                    htmlFor="cvv"
+                    className="text-sm"
+                    style={{ fontFamily: '"Dream Avenue"' }}
+                  >
                     CVV
                   </Label>
                   <Input
@@ -407,7 +510,17 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
 
       {/* Submit Button */}
       <div className="border-t border-border pt-4 sm:pt-6">
-        <Button type="submit" size="lg" className="w-full h-12 sm:h-14 text-sm sm:text-base" disabled={isProcessing} style={{ backgroundColor: 'rgba(61, 8, 17, 1)', color: 'rgba(255, 255, 255, 1)', fontFamily: '"Dream Avenue"' }}>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full h-12 sm:h-14 text-sm sm:text-base"
+          disabled={isProcessing}
+          style={{
+            backgroundColor: "rgba(61, 8, 17, 1)",
+            color: "rgba(255, 255, 255, 1)",
+            fontFamily: '"Dream Avenue"',
+          }}
+        >
           {isProcessing ? (
             <span className="flex items-center gap-2">
               <span className="animate-spin">⏳</span>
@@ -420,10 +533,13 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
             </span>
           )}
         </Button>
-        <p className="text-xs text-center text-muted-foreground mt-3" style={{ fontFamily: '"Dream Avenue"' }}>
+        <p
+          className="text-xs text-center text-muted-foreground mt-3"
+          style={{ fontFamily: '"Dream Avenue"' }}
+        >
           Your payment information is secure and encrypted
         </p>
       </div>
     </form>
-  )
+  );
 }

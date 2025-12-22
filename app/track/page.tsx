@@ -1,163 +1,228 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Header } from "@/components/header"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import Link from "next/link"
-import { ArrowLeft, Package, Truck, CheckCircle, MapPin, Clock, Search } from "lucide-react"
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { Header } from "@/components/header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Package,
+  Truck,
+  CheckCircle,
+  MapPin,
+  Clock,
+  Search,
+} from "lucide-react";
+import { api } from "@/lib/api-client";
+import { useAuth } from "@/components/auth-provider";
+import { useToast } from "@/hooks/use-toast";
+
+interface OrderTrackingEvent {
+  id: number;
+  status: string;
+  notes?: string;
+  location?: string;
+  timestamp: string;
+  updatedByUserName?: string;
+}
+
+interface OrderItem {
+  id: number;
+  productId: number;
+  productName: string;
+  productSKU?: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  unit?: string;
+}
 
 interface Order {
-  id: string
-  date: string
-  total: number
-  status: string
-  userId?: string | null
-  trackingNumber?: string
-  trackingEvents?: {
-    status: string
-    location: string
-    date: string
-    description: string
-  }[]
-  shipping: {
-    firstName: string
-    lastName: string
-    address: string
-    city: string
-    state: string
-    zipCode: string
-  }
+  id: number;
+  orderNumber: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerAddress: string;
+  orderDate: string;
+  deliveryDate?: string;
+  totalAmount: number;
+  status: string;
+  paymentStatus: string;
+  notes?: string;
+  items: OrderItem[];
+  trackingHistory: OrderTrackingEvent[];
 }
 
 export default function TrackOrderPage() {
-  const [orderId, setOrderId] = useState("")
-  const [order, setOrder] = useState<Order | null>(null)
-  const [error, setError] = useState("")
-  const [isSearching, setIsSearching] = useState(false)
+  const searchParams = useSearchParams();
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const [orderNumber, setOrderNumber] = useState("");
+  const [email, setEmail] = useState("");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [error, setError] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
 
-  const generateMockTracking = (status: string, orderDate: string) => {
-    const events = [
-      {
-        status: "confirmed",
-        location: "JST Headquarters",
-        date: orderDate,
-        description: "Order confirmed and payment received",
-      },
-    ]
+  // Load order from URL params if available
+  useEffect(() => {
+    const orderIdParam = searchParams?.get("orderId");
+    const emailParam = searchParams?.get("email");
 
-    if (status === "processing" || status === "shipped" || status === "delivered") {
-      events.push({
-        status: "processing",
-        location: "Manufacturing Facility",
-        date: new Date(new Date(orderDate).getTime() + 24 * 60 * 60 * 1000).toISOString(),
-        description: "Item prepared for shipment",
-      })
+    if (orderIdParam) {
+      setOrderNumber(orderIdParam);
+      if (emailParam) {
+        setEmail(emailParam);
+        // Auto-fetch if both are provided
+        const fetchOrder = async () => {
+          setIsSearching(true);
+          setError("");
+          setOrder(null);
+          try {
+            const orderData = (await api.customerOrders.trackOrderByNumber(
+              orderIdParam,
+              emailParam
+            )) as Order;
+            setOrder(orderData);
+          } catch (error: any) {
+            setError(
+              error.message ||
+                "Order not found. Please check your order number and email."
+            );
+          } finally {
+            setIsSearching(false);
+          }
+        };
+        fetchOrder();
+      } else if (isAuthenticated && user?.email) {
+        setEmail(user.email);
+        // Auto-fetch for authenticated users (no email needed)
+        const fetchOrder = async () => {
+          setIsSearching(true);
+          setError("");
+          setOrder(null);
+          try {
+            const orderData = (await api.customerOrders.trackOrderByNumber(
+              orderIdParam
+            )) as Order;
+            setOrder(orderData);
+          } catch (error: any) {
+            setError(
+              error.message ||
+                "Order not found. Please check your order number."
+            );
+          } finally {
+            setIsSearching(false);
+          }
+        };
+        fetchOrder();
+      }
     }
-
-    if (status === "shipped" || status === "delivered") {
-      events.push({
-        status: "shipped",
-        location: "Distribution Center",
-        date: new Date(new Date(orderDate).getTime() + 48 * 60 * 60 * 1000).toISOString(),
-        description: "Package picked up by courier",
-      })
-      events.push({
-        status: "in-transit",
-        location: "Regional Hub",
-        date: new Date(new Date(orderDate).getTime() + 72 * 60 * 60 * 1000).toISOString(),
-        description: "In transit to your location",
-      })
-    }
-
-    if (status === "delivered") {
-      events.push({
-        status: "delivered",
-        location: "Your Address",
-        date: new Date(new Date(orderDate).getTime() + 96 * 60 * 60 * 1000).toISOString(),
-        description: "Successfully delivered",
-      })
-    }
-
-    return events
-  }
+  }, [searchParams, isAuthenticated, user]);
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case "processing":
-        return "text-blue-600"
+      case "accepted":
+        return "text-blue-600";
       case "shipped":
-        return "text-green-600"
+        return "text-green-600";
       case "delivered":
-        return "text-gray-600"
+        return "text-gray-600";
+      case "cancelled":
+        return "text-red-600";
       default:
-        return "text-muted-foreground"
+        return "text-muted-foreground";
     }
-  }
+  };
 
   const getTrackingIcon = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
+      case "pending":
       case "confirmed":
-        return CheckCircle
+        return CheckCircle;
       case "processing":
-        return Package
+      case "accepted":
+        return Package;
       case "shipped":
       case "in-transit":
-        return Truck
+        return Truck;
       case "delivered":
-        return MapPin
+        return MapPin;
+      case "cancelled":
+        return Clock;
       default:
-        return Clock
+        return Clock;
     }
-  }
+  };
 
-  const handleSearch = () => {
-    if (!orderId.trim()) {
-      setError("Please enter an order ID")
-      return
+  const handleSearch = async () => {
+    const orderNumToSearch = orderNumber.trim();
+
+    if (!orderNumToSearch) {
+      setError("Please enter an order number");
+      return;
     }
 
-    setIsSearching(true)
-    setError("")
+    // For guest users, email is required
+    if (!isAuthenticated && !email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
 
-    // Simulate search delay
-    setTimeout(() => {
-      const saved = localStorage.getItem("orders")
-      if (saved) {
-        const orders = JSON.parse(saved)
-        const foundOrder = orders.find((o: Order) => o.id.toLowerCase() === orderId.toLowerCase().trim())
+    setIsSearching(true);
+    setError("");
+    setOrder(null);
 
-        if (foundOrder) {
-          const orderWithTracking: Order = {
-            ...foundOrder,
-            trackingNumber: foundOrder.trackingNumber || `JST${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-            trackingEvents: foundOrder.trackingEvents || generateMockTracking(foundOrder.status, foundOrder.date),
-          }
-          setOrder(orderWithTracking)
-        } else {
-          setError("Order not found. Please check your order ID and try again.")
-          setOrder(null)
-        }
-      } else {
-        setError("No orders found. Please check your order ID and try again.")
-        setOrder(null)
-      }
-      setIsSearching(false)
-    }, 500)
-  }
+    try {
+      // For authenticated users, we can track without email
+      // For guest users, we need email
+      const orderData = (await api.customerOrders.trackOrderByNumber(
+        orderNumToSearch,
+        isAuthenticated && user?.email ? undefined : email.trim()
+      )) as Order;
+      setOrder(orderData);
+      toast({
+        title: "Order found",
+        description: `Order #${orderData.orderNumber} retrieved successfully.`,
+      });
+    } catch (error: any) {
+      console.error("Error tracking order:", error);
+      setError(
+        error.message ||
+          "Order not found. Please check your order number and email."
+      );
+      setOrder(null);
+      toast({
+        title: "Error",
+        description:
+          error.message || "Failed to track order. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      handleSearch()
+      handleSearch();
     }
-  }
+  };
 
   return (
     <div className="min-h-screen">
       <Header />
       <div className="container mx-auto px-4 sm:px-6 pt-24 sm:pt-28 md:pt-32 pb-8 md:pb-12 max-w-4xl">
-        <Button variant="ghost" asChild className="mb-6" style={{ fontFamily: '"Dream Avenue"' }}>
+        <Button
+          variant="ghost"
+          asChild
+          className="mb-6"
+          style={{ fontFamily: '"Dream Avenue"' }}
+        >
           <Link href="/">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Home
@@ -165,42 +230,84 @@ export default function TrackOrderPage() {
         </Button>
 
         <div className="mb-8">
-          <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"' }}>
+          <h1
+            className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold mb-4"
+            style={{ fontFamily: '"Dream Avenue"' }}
+          >
             Track Your Order
           </h1>
-          <p className="text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
+          <p
+            className="text-muted-foreground"
+            style={{ fontFamily: '"Dream Avenue"' }}
+          >
             Enter your order ID to track your shipment
           </p>
         </div>
 
         {/* Search Form */}
         <div className="mb-8">
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <Label htmlFor="orderId" className="sr-only">Order ID</Label>
+          <div className="space-y-4">
+            <div>
+              <Label
+                htmlFor="orderNumber"
+                className="text-sm mb-2 block"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              >
+                Order Number
+              </Label>
               <Input
-                id="orderId"
+                id="orderNumber"
                 type="text"
-                placeholder="Enter your order ID (e.g., abc123xyz)"
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
+                placeholder="Enter your order number (e.g., CUST202412010001)"
+                value={orderNumber}
+                onChange={(e) => setOrderNumber(e.target.value)}
                 onKeyPress={handleKeyPress}
                 className="h-12"
               />
             </div>
+            <div>
+              <Label
+                htmlFor="email"
+                className="text-sm mb-2 block"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              >
+                Email Address
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="h-12"
+                disabled={isAuthenticated && !!user?.email}
+              />
+            </div>
             <Button
               onClick={handleSearch}
-              disabled={isSearching}
+              disabled={
+                isSearching ||
+                !orderNumber.trim() ||
+                (!isAuthenticated && !email.trim())
+              }
               size="lg"
-              className="h-12 px-8"
-              style={{ backgroundColor: '#3D0811', color: 'rgba(255, 255, 255, 1)', fontFamily: '"Dream Avenue"' }}
+              className="w-full h-12"
+              style={{
+                backgroundColor: "#3D0811",
+                color: "rgba(255, 255, 255, 1)",
+                fontFamily: '"Dream Avenue"',
+              }}
             >
               <Search className="h-4 w-4 mr-2" />
-              {isSearching ? "Searching..." : "Track"}
+              {isSearching ? "Searching..." : "Track Order"}
             </Button>
           </div>
           {error && (
-            <p className="text-destructive text-sm mt-2" style={{ fontFamily: '"Dream Avenue"' }}>
+            <p
+              className="text-destructive text-sm mt-2"
+              style={{ fontFamily: '"Dream Avenue"' }}
+            >
               {error}
             </p>
           )}
@@ -212,52 +319,119 @@ export default function TrackOrderPage() {
             <div className="mb-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                 <div>
-                  <h2 className="font-medium mb-1" style={{ fontFamily: '"Dream Avenue"' }}>Order #{order.id}</h2>
-                  <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
-                    {new Date(order.date).toLocaleDateString("en-US", {
+                  <h2
+                    className="font-medium mb-1"
+                    style={{ fontFamily: '"Dream Avenue"' }}
+                  >
+                    Order #{order.orderNumber}
+                  </h2>
+                  <p
+                    className="text-sm text-muted-foreground"
+                    style={{ fontFamily: '"Dream Avenue"' }}
+                  >
+                    {new Date(order.orderDate).toLocaleDateString("en-US", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
                     })}
                   </p>
-                  {order.trackingNumber && (
-                    <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: '"Dream Avenue"' }}>
-                      Tracking: {order.trackingNumber}
-                    </p>
-                  )}
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className={`text-sm font-medium capitalize ${getStatusColor(order.status)}`} style={{ fontFamily: '"Dream Avenue"' }}>
+                  <span
+                    className={`text-sm font-medium capitalize ${getStatusColor(
+                      order.status
+                    )}`}
+                    style={{ fontFamily: '"Dream Avenue"' }}
+                  >
                     {order.status}
                   </span>
-                  <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>${order.total.toFixed(2)}</span>
+                  <span
+                    className="font-medium"
+                    style={{ fontFamily: '"Dream Avenue"' }}
+                  >
+                    ${order.totalAmount.toFixed(2)}
+                  </span>
                 </div>
               </div>
 
-              <div className="text-sm text-muted-foreground mb-4" style={{ fontFamily: '"Dream Avenue"' }}>
+              <div
+                className="text-sm text-muted-foreground mb-4 space-y-1"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              >
                 <p>
-                  Shipping to: {order.shipping.firstName} {order.shipping.lastName}
+                  <strong>Customer:</strong> {order.customerName}
                 </p>
+                {order.customerEmail && (
+                  <p>
+                    <strong>Email:</strong> {order.customerEmail}
+                  </p>
+                )}
+                {order.customerPhone && (
+                  <p>
+                    <strong>Phone:</strong> {order.customerPhone}
+                  </p>
+                )}
                 <p>
-                  {order.shipping.address}, {order.shipping.city}, {order.shipping.state} {order.shipping.zipCode}
+                  <strong>Shipping Address:</strong> {order.customerAddress}
                 </p>
+                {order.deliveryDate && (
+                  <p>
+                    <strong>Expected Delivery:</strong>{" "}
+                    {new Date(order.deliveryDate).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </p>
+                )}
               </div>
+
+              {/* Order Items */}
+              {order.items && order.items.length > 0 && (
+                <div className="border-t border-border pt-4 mb-4">
+                  <h3
+                    className="font-medium mb-3"
+                    style={{ fontFamily: '"Dream Avenue"' }}
+                  >
+                    Order Items
+                  </h3>
+                  <div className="space-y-2">
+                    {order.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between text-sm"
+                      >
+                        <span style={{ fontFamily: '"Dream Avenue"' }}>
+                          {item.productName} x {item.quantity}{" "}
+                          {item.unit || "piece"}
+                        </span>
+                        <span style={{ fontFamily: '"Dream Avenue"' }}>
+                          ${item.totalPrice.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Tracking Timeline */}
-            {order.trackingEvents && order.trackingEvents.length > 0 && (
+            {order.trackingHistory && order.trackingHistory.length > 0 && (
               <div className="border-t border-border pt-6">
-                <h3 className="font-medium mb-4 flex items-center gap-2" style={{ fontFamily: '"Dream Avenue"' }}>
+                <h3
+                  className="font-medium mb-4 flex items-center gap-2"
+                  style={{ fontFamily: '"Dream Avenue"' }}
+                >
                   <Truck className="h-4 w-4" />
-                  Shipment Tracking
+                  Order Tracking History
                 </h3>
                 <div className="space-y-4">
-                  {order.trackingEvents.map((event, index) => {
-                    const EventIcon = getTrackingIcon(event.status)
-                    const isLast = index === order.trackingEvents!.length - 1
+                  {order.trackingHistory.map((event, index) => {
+                    const EventIcon = getTrackingIcon(event.status);
+                    const isLast = index === order.trackingHistory!.length - 1;
 
                     return (
-                      <div key={index} className="flex gap-4">
+                      <div key={event.id} className="flex gap-4">
                         <div className="flex flex-col items-center">
                           <div
                             className={`flex h-8 w-8 items-center justify-center rounded-full ${
@@ -268,27 +442,45 @@ export default function TrackOrderPage() {
                           >
                             <EventIcon className="h-4 w-4" />
                           </div>
-                          {!isLast && <div className="w-0.5 flex-1 bg-border my-1 min-h-[20px]" />}
+                          {!isLast && (
+                            <div className="w-0.5 flex-1 bg-border my-1 min-h-[20px]" />
+                          )}
                         </div>
                         <div className="flex-1 pb-4">
-                          <p className="font-medium capitalize" style={{ fontFamily: '"Dream Avenue"' }}>
+                          <p
+                            className="font-medium capitalize"
+                            style={{ fontFamily: '"Dream Avenue"' }}
+                          >
                             {event.status.replace("-", " ")}
                           </p>
-                          <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
-                            {event.description}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: '"Dream Avenue"' }}>
-                            {event.location} •{" "}
-                            {new Date(event.date).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
+                          {event.notes && (
+                            <p
+                              className="text-sm text-muted-foreground"
+                              style={{ fontFamily: '"Dream Avenue"' }}
+                            >
+                              {event.notes}
+                            </p>
+                          )}
+                          <p
+                            className="text-xs text-muted-foreground mt-1"
+                            style={{ fontFamily: '"Dream Avenue"' }}
+                          >
+                            {event.location && `${event.location} • `}
+                            {new Date(event.timestamp).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                hour: "numeric",
+                                minute: "2-digit",
+                              }
+                            )}
+                            {event.updatedByUserName &&
+                              ` • Updated by ${event.updatedByUserName}`}
                           </p>
                         </div>
                       </div>
-                    )
+                    );
                   })}
                 </div>
               </div>
@@ -299,13 +491,15 @@ export default function TrackOrderPage() {
         {!order && !error && (
           <div className="text-center py-12 border border-border">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
+            <p
+              className="text-muted-foreground"
+              style={{ fontFamily: '"Dream Avenue"' }}
+            >
               Enter an order ID above to track your order
             </p>
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }
-

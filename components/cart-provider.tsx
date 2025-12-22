@@ -18,6 +18,13 @@ export interface CartItem {
   cartItemId?: number // Backend cart item ID (for authenticated users)
 }
 
+interface PromoCodeInfo {
+  code: string
+  discountType: string
+  discountValue: number
+  discountAmount: number
+}
+
 interface CartContextType {
   items: CartItem[]
   addItem: (item: Omit<CartItem, "quantity">) => Promise<void>
@@ -28,6 +35,8 @@ interface CartContextType {
   itemCount: number
   isLoading: boolean
   syncWithBackend: () => Promise<void>
+  promoCode: PromoCodeInfo | null
+  setPromoCode: (promoCode: PromoCodeInfo | null) => void
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -60,8 +69,42 @@ interface BackendCartResponse {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [promoCode, setPromoCodeState] = useState<PromoCodeInfo | null>(null)
   const { toast } = useToast()
   const { isAuthenticated, userId } = useAuth()
+
+  // Load promocode from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("promoCode")
+      if (saved) {
+        setPromoCodeState(JSON.parse(saved))
+      }
+    } catch (error) {
+      console.error("Error loading promo code from localStorage:", error)
+    }
+  }, [])
+
+  // Save promocode to localStorage when it changes
+  useEffect(() => {
+    if (promoCode) {
+      try {
+        localStorage.setItem("promoCode", JSON.stringify(promoCode))
+      } catch (error) {
+        console.error("Error saving promo code to localStorage:", error)
+      }
+    } else {
+      try {
+        localStorage.removeItem("promoCode")
+      } catch (error) {
+        console.error("Error removing promo code from localStorage:", error)
+      }
+    }
+  }, [promoCode])
+
+  const setPromoCode = (code: PromoCodeInfo | null) => {
+    setPromoCodeState(code)
+  }
 
   // Helper function to optimize image data (remove base64 if too large)
   const optimizeImageForStorage = (image: string): string => {
@@ -409,6 +452,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         
         setItems([])
         localStorage.removeItem("cart")
+        setPromoCodeState(null)
+        localStorage.removeItem("promoCode")
         
         toast({
           title: "Cart cleared",
@@ -420,8 +465,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         
         // Fallback to local clear
         setItems([])
+        setPromoCodeState(null)
         try {
           localStorage.removeItem("cart")
+          localStorage.removeItem("promoCode")
         } catch (localError) {
           console.error("Error clearing cart from localStorage:", localError)
         }
@@ -438,8 +485,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } else {
       // Clear from local storage only
       setItems([])
+      setPromoCodeState(null)
       try {
         localStorage.removeItem("cart")
+        localStorage.removeItem("promoCode")
       } catch (error) {
         console.error("Error clearing cart from localStorage:", error)
       }
@@ -460,6 +509,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       itemCount,
       isLoading,
       syncWithBackend,
+      promoCode,
+      setPromoCode,
     }}>
       {children}
     </CartContext.Provider>

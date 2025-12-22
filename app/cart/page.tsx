@@ -5,53 +5,84 @@ import { Label } from "@/components/ui/label"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { useCart } from "@/components/cart-provider"
+import { useAuth } from "@/components/auth-provider"
 import Image from "next/image"
 import Link from "next/link"
 import { Minus, Plus, X, Tag, ArrowLeft } from "lucide-react"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
+import { api } from "@/lib/api-client"
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, total } = useCart()
+  const { items, removeItem, updateQuantity, total, promoCode, setPromoCode } = useCart()
+  const { user, userId, isAuthenticated } = useAuth()
   const [couponCode, setCouponCode] = useState("")
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null)
   const [isApplying, setIsApplying] = useState(false)
   const { toast } = useToast()
 
-  const coupons = {
-    WELCOME10: 10,
-    SAVE20: 20,
-    LUXURY15: 15,
-  }
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast({
+        title: "Invalid coupon",
+        description: "Please enter a coupon code",
+        variant: "destructive",
+      })
+      return
+    }
 
-  const handleApplyCoupon = () => {
     setIsApplying(true)
-    setTimeout(() => {
-      const discount = coupons[couponCode.toUpperCase() as keyof typeof coupons]
-      if (discount) {
-        setAppliedCoupon({ code: couponCode.toUpperCase(), discount })
-        toast({
-          title: "Coupon applied!",
-          description: `You saved ${discount}% on your order`,
+    try {
+      // Get product IDs from cart items
+      const productIds = items
+        .filter(item => item.productId)
+        .map(item => item.productId!)
+      
+      // Validate promocode with API
+      const validation = await api.coupons.validate(
+        couponCode.trim().toUpperCase(),
+        total,
+        productIds.length > 0 ? productIds : undefined,
+        userId || undefined
+      ) as any
+
+      if (validation.valid) {
+        setPromoCode({
+          code: validation.code,
+          discountType: validation.discountType,
+          discountValue: validation.discountValue,
+          discountAmount: validation.discountAmount,
         })
+        toast({
+          title: "Promo code applied!",
+          description: `You saved ${validation.discountAmount.toFixed(2)} EGP on your order`,
+        })
+        setCouponCode("")
       } else {
         toast({
-          title: "Invalid coupon",
-          description: "Please check your coupon code and try again",
+          title: "Invalid promo code",
+          description: validation.message || "Please check your promo code and try again",
           variant: "destructive",
         })
       }
+    } catch (error: any) {
+      console.error("Error validating promo code:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to validate promo code. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
       setIsApplying(false)
-    }, 500)
+    }
   }
 
   const handleRemoveCoupon = () => {
-    setAppliedCoupon(null)
+    setPromoCode(null)
     setCouponCode("")
   }
 
-  const discountAmount = appliedCoupon ? (total * appliedCoupon.discount) / 100 : 0
+  const discountAmount = promoCode ? promoCode.discountAmount : 0
   const subtotalAfterDiscount = total - discountAmount
 
   if (items.length === 0) {
@@ -166,14 +197,18 @@ export default function CartPage() {
 
               <div className="mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-border">
                 <Label htmlFor="coupon" className="text-sm font-medium mb-2 block" style={{ fontFamily: '"Dream Avenue"' }}>
-                  Coupon Code
+                  Promo Code
                 </Label>
-                {appliedCoupon ? (
+                {promoCode ? (
                   <div className="flex items-center justify-between p-3 bg-secondary border border-border">
                     <div className="flex items-center gap-2">
                       <Tag className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{appliedCoupon.code}</span>
-                      <span className="text-xs text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>-{appliedCoupon.discount}%</span>
+                      <span className="text-sm font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{promoCode.code}</span>
+                      <span className="text-xs text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
+                        {promoCode.discountType === "Percentage" 
+                          ? `-${promoCode.discountValue}%` 
+                          : `-${promoCode.discountValue.toFixed(2)} EGP`}
+                      </span>
                     </div>
                     <button
                       onClick={handleRemoveCoupon}
@@ -184,27 +219,46 @@ export default function CartPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <Input
-                      id="coupon"
-                      placeholder="Enter code"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleApplyCoupon}
-                      disabled={!couponCode || isApplying}
-                      className="px-4 bg-transparent"
-                      style={{ fontFamily: '"Dream Avenue"' }}
-                    >
-                      {isApplying ? "..." : "Apply"}
-                    </Button>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        id="coupon"
+                        placeholder={isAuthenticated ? "Enter promo code" : "Sign in to use promo codes"}
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter" && isAuthenticated) {
+                            handleApplyCoupon()
+                          }
+                        }}
+                        disabled={!isAuthenticated}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleApplyCoupon}
+                        disabled={!isAuthenticated || !couponCode.trim() || isApplying}
+                        className="px-4 bg-transparent"
+                        style={{ fontFamily: '"Dream Avenue"' }}
+                      >
+                        {isApplying ? "..." : "Apply"}
+                      </Button>
+                    </div>
+                    {!isAuthenticated && (
+                      <p className="text-xs text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
+                        To use promo codes, please{" "}
+                        <Link href="/login" className="text-[#3D0811] underline hover:no-underline">
+                          sign in
+                        </Link>
+                        {" "}or{" "}
+                        <Link href="/signup" className="text-[#3D0811] underline hover:no-underline">
+                          sign up
+                        </Link>
+                      </p>
+                    )}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground mt-2" style={{ fontFamily: '"Dream Avenue"' }}>Try: WELCOME10, SAVE20, LUXURY15</p>
               </div>
 
               <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
@@ -212,10 +266,14 @@ export default function CartPage() {
                   <span className="text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Subtotal</span>
                   <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>{total.toFixed(2)} EGP</span>
                 </div>
-                {appliedCoupon && (
+                {promoCode && (
                   <div className="flex justify-between text-sm text-green-600">
-                    <span style={{ fontFamily: '"Dream Avenue"' }}>Discount ({appliedCoupon.discount}%)</span>
-                    <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>-{discountAmount.toFixed(2)} EGP</span>
+                    <span style={{ fontFamily: '"Dream Avenue"' }}>
+                      Discount ({promoCode.code})
+                    </span>
+                    <span className="font-medium" style={{ fontFamily: '"Dream Avenue"' }}>
+                      -{discountAmount.toFixed(2)} EGP
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">

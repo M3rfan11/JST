@@ -934,30 +934,31 @@ public class PromoCodeController : ControllerBase
                 return Ok(new { valid = false, message = "This promo code has reached its usage limit" });
             }
 
+            // IMPORTANT: Promo codes are only available for signed-in users
+            // Reject all promo codes for guest users
+            if (request.UserId == null)
+            {
+                return Ok(new { valid = false, message = "You must be signed in to use promo codes. Please sign up or log in first." });
+            }
+
             // Check user assignment (if users are specified, user must be in the list)
-            // IMPORTANT: Only registered users (with UserId) can use promo codes
             if (promoCode.PromoCodeUsers.Any())
             {
-                if (request.UserId == null)
-                {
-                    return Ok(new { valid = false, message = "You must be a registered user to use this promo code. Please sign up first." });
-                }
-
                 if (!promoCode.PromoCodeUsers.Any(pcu => pcu.UserId == request.UserId))
                 {
                     return Ok(new { valid = false, message = "This promo code is not available for your account" });
                 }
+            }
 
-                // Check per-user usage limit
-                if (promoCode.UsageLimitPerUser.HasValue)
+            // Check per-user usage limit (for ALL promocodes, not just user-specific ones)
+            if (promoCode.UsageLimitPerUser.HasValue)
+            {
+                var userUsageCount = await _context.PromoCodeUsages
+                    .CountAsync(pcu => pcu.PromoCodeId == promoCode.Id && pcu.UserId == request.UserId);
+                
+                if (userUsageCount >= promoCode.UsageLimitPerUser.Value)
                 {
-                    var userUsageCount = await _context.PromoCodeUsages
-                        .CountAsync(pcu => pcu.PromoCodeId == promoCode.Id && pcu.UserId == request.UserId);
-                    
-                    if (userUsageCount >= promoCode.UsageLimitPerUser.Value)
-                    {
-                        return Ok(new { valid = false, message = "You have reached the usage limit for this promo code" });
-                    }
+                    return Ok(new { valid = false, message = "You have reached the usage limit for this promo code" });
                 }
             }
 

@@ -462,83 +462,88 @@ public class CustomerOrderController : ControllerBase
             
             if (!string.IsNullOrEmpty(request.PromoCode))
             {
-                appliedPromoCode = await _context.PromoCodes
-                    .Include(pc => pc.PromoCodeUsers)
-                    .Include(pc => pc.PromoCodeProducts)
-                    .FirstOrDefaultAsync(pc => pc.Code.ToUpper() == request.PromoCode.ToUpper() && pc.IsActive);
-
-                if (appliedPromoCode != null)
+                // IMPORTANT: Promo codes are only available for signed-in users
+                // Reject promo codes for guest users
+                if (authenticatedUserId == null)
                 {
-                    var now = DateTime.UtcNow;
-                    var orderProductIds = request.Items.Select(i => i.ProductId).ToList();
-                    
-                    // Check if expired
-                    if (appliedPromoCode.EndDate.HasValue && appliedPromoCode.EndDate.Value < now)
-                    {
-                        appliedPromoCode = null; // Code expired
-                    }
-                    // Check usage limit
-                    else if (appliedPromoCode.UsageLimit.HasValue && appliedPromoCode.UsedCount >= appliedPromoCode.UsageLimit.Value)
-                    {
-                        appliedPromoCode = null; // Usage limit reached
-                    }
-                    // Check minimum order amount
-                    else if (appliedPromoCode.MinimumOrderAmount.HasValue && orderAmount < appliedPromoCode.MinimumOrderAmount.Value)
-                    {
-                        appliedPromoCode = null; // Minimum order amount not met
-                    }
-                    // Check if assigned to specific users
-                    else if (appliedPromoCode.PromoCodeUsers.Any())
-                    {
-                        // If user-specific, must be authenticated
-                        if (authenticatedUserId == null)
-                        {
-                            appliedPromoCode = null; // Guest can't use user-specific codes
-                        }
-                        else if (!appliedPromoCode.PromoCodeUsers.Any(pcu => pcu.UserId == authenticatedUserId))
-                        {
-                            appliedPromoCode = null; // User not in allowed list
-                        }
-                        else
-                        {
-                            // Check per-user usage limit
-                            if (appliedPromoCode.UsageLimitPerUser.HasValue)
-                            {
-                                var userUsageCount = await _context.PromoCodeUsages
-                                    .CountAsync(pcu => pcu.PromoCodeId == appliedPromoCode.Id && pcu.UserId == authenticatedUserId);
-                                
-                                if (userUsageCount >= appliedPromoCode.UsageLimitPerUser.Value)
-                                {
-                                    appliedPromoCode = null; // User has reached their limit
-                                }
-                            }
-                        }
-                    }
-                    // Check if applicable to specific products
-                    else if (appliedPromoCode.PromoCodeProducts.Any())
-                    {
-                        if (!orderProductIds.Any(id => appliedPromoCode.PromoCodeProducts.Any(pcp => pcp.ProductId == id)))
-                        {
-                            appliedPromoCode = null; // No matching products
-                        }
-                    }
+                    // Guest user trying to use promo code - reject it silently (don't apply discount)
+                    appliedPromoCode = null;
+                }
+                else
+                {
+                    appliedPromoCode = await _context.PromoCodes
+                        .Include(pc => pc.PromoCodeUsers)
+                        .Include(pc => pc.PromoCodeProducts)
+                        .FirstOrDefaultAsync(pc => pc.Code.ToUpper() == request.PromoCode.ToUpper() && pc.IsActive);
 
-                    // Calculate discount if promo code is valid
                     if (appliedPromoCode != null)
                     {
-                        if (appliedPromoCode.DiscountType == "Percentage")
+                        var now = DateTime.UtcNow;
+                        var orderProductIds = request.Items.Select(i => i.ProductId).ToList();
+                        
+                        // Check if expired
+                        if (appliedPromoCode.EndDate.HasValue && appliedPromoCode.EndDate.Value < now)
                         {
-                            discountAmount = orderAmount * (appliedPromoCode.DiscountValue / 100m);
+                            appliedPromoCode = null; // Code expired
                         }
-                        else if (appliedPromoCode.DiscountType == "FixedAmount")
+                        // Check usage limit
+                        else if (appliedPromoCode.UsageLimit.HasValue && appliedPromoCode.UsedCount >= appliedPromoCode.UsageLimit.Value)
                         {
-                            discountAmount = appliedPromoCode.DiscountValue;
+                            appliedPromoCode = null; // Usage limit reached
+                        }
+                        // Check minimum order amount
+                        else if (appliedPromoCode.MinimumOrderAmount.HasValue && orderAmount < appliedPromoCode.MinimumOrderAmount.Value)
+                        {
+                            appliedPromoCode = null; // Minimum order amount not met
+                        }
+                        
+                        // Check if assigned to specific users
+                        if (appliedPromoCode != null && appliedPromoCode.PromoCodeUsers.Any())
+                        {
+                            if (!appliedPromoCode.PromoCodeUsers.Any(pcu => pcu.UserId == authenticatedUserId))
+                            {
+                                appliedPromoCode = null; // User not in allowed list
+                            }
+                        }
+                        
+                        // Check per-user usage limit (for all promocodes, not just user-specific ones)
+                        if (appliedPromoCode != null && appliedPromoCode.UsageLimitPerUser.HasValue)
+                        {
+                            var userUsageCount = await _context.PromoCodeUsages
+                                .CountAsync(pcu => pcu.PromoCodeId == appliedPromoCode.Id && pcu.UserId == authenticatedUserId);
+                            
+                            if (userUsageCount >= appliedPromoCode.UsageLimitPerUser.Value)
+                            {
+                                appliedPromoCode = null; // User has reached their limit
+                            }
+                        }
+                        
+                        // Check if applicable to specific products
+                        if (appliedPromoCode != null && appliedPromoCode.PromoCodeProducts.Any())
+                        {
+                            if (!orderProductIds.Any(id => appliedPromoCode.PromoCodeProducts.Any(pcp => pcp.ProductId == id)))
+                            {
+                                appliedPromoCode = null; // No matching products
+                            }
                         }
 
-                        // Apply maximum discount limit
-                        if (appliedPromoCode.MaximumDiscountAmount.HasValue && discountAmount > appliedPromoCode.MaximumDiscountAmount.Value)
+                        // Calculate discount if promo code is valid
+                        if (appliedPromoCode != null)
                         {
-                            discountAmount = appliedPromoCode.MaximumDiscountAmount.Value;
+                            if (appliedPromoCode.DiscountType == "Percentage")
+                            {
+                                discountAmount = orderAmount * (appliedPromoCode.DiscountValue / 100m);
+                            }
+                            else if (appliedPromoCode.DiscountType == "FixedAmount")
+                            {
+                                discountAmount = appliedPromoCode.DiscountValue;
+                            }
+
+                            // Apply maximum discount limit
+                            if (appliedPromoCode.MaximumDiscountAmount.HasValue && discountAmount > appliedPromoCode.MaximumDiscountAmount.Value)
+                            {
+                                discountAmount = appliedPromoCode.MaximumDiscountAmount.Value;
+                            }
                         }
                     }
                 }
@@ -824,29 +829,28 @@ public class CustomerOrderController : ControllerBase
                         appliedPromoCode = null; // Minimum order amount not met
                     }
                     // Check if assigned to specific users
-                    else if (appliedPromoCode.PromoCodeUsers.Any())
+                    if (appliedPromoCode.PromoCodeUsers.Any())
                     {
                         if (!appliedPromoCode.PromoCodeUsers.Any(pcu => pcu.UserId == userId))
                         {
                             appliedPromoCode = null; // User not in allowed list
                         }
-                        else
+                    }
+                    
+                    // Check per-user usage limit (for all promocodes, not just user-specific ones)
+                    if (appliedPromoCode != null && appliedPromoCode.UsageLimitPerUser.HasValue)
+                    {
+                        var userUsageCount = await _context.PromoCodeUsages
+                            .CountAsync(pcu => pcu.PromoCodeId == appliedPromoCode.Id && pcu.UserId == userId);
+                        
+                        if (userUsageCount >= appliedPromoCode.UsageLimitPerUser.Value)
                         {
-                            // Check per-user usage limit
-                            if (appliedPromoCode.UsageLimitPerUser.HasValue)
-                            {
-                                var userUsageCount = await _context.PromoCodeUsages
-                                    .CountAsync(pcu => pcu.PromoCodeId == appliedPromoCode.Id && pcu.UserId == userId);
-                                
-                                if (userUsageCount >= appliedPromoCode.UsageLimitPerUser.Value)
-                                {
-                                    appliedPromoCode = null; // User has reached their limit
-                                }
-                            }
+                            appliedPromoCode = null; // User has reached their limit
                         }
                     }
+                    
                     // Check if applicable to specific products
-                    else if (appliedPromoCode.PromoCodeProducts.Any())
+                    if (appliedPromoCode != null && appliedPromoCode.PromoCodeProducts.Any())
                     {
                         if (!orderProductIds.Any(id => appliedPromoCode.PromoCodeProducts.Any(pcp => pcp.ProductId == id)))
                         {
@@ -1061,6 +1065,59 @@ public class CustomerOrderController : ControllerBase
         {
             _logger.LogError(ex, "Error retrieving order {OrderId}", id);
             return StatusCode(500, new { message = "An error occurred while retrieving the order" });
+        }
+    }
+
+    /// <summary>
+    /// Track order by order number (for authenticated users - uses their email automatically)
+    /// </summary>
+    [HttpGet("track/{orderNumber}")]
+    [Authorize]
+    public async Task<ActionResult<CustomerOrderResponse>> TrackOrderByNumber(string orderNumber)
+    {
+        try
+        {
+            if (!await IsCustomer())
+            {
+                return StatusCode(403, new { message = "Access denied. Customer role required." });
+            }
+
+            var userId = GetCurrentUserId();
+            var currentUser = await _context.Users.FindAsync(userId);
+            if (currentUser == null)
+            {
+                return Unauthorized(new { message = "User not found" });
+            }
+
+            // Normalize order number (remove # if present, trim whitespace, uppercase)
+            var normalizedOrderNumber = orderNumber.Trim().ToUpper().Replace("#", "");
+            
+            // Get all orders first, then filter in memory for case-insensitive matching
+            var orders = await _context.SalesOrders
+                .Include(so => so.SalesItems)
+                .ThenInclude(si => si.Product)
+                .Where(so => 
+                    so.OrderNumber.Trim().ToUpper().Replace("#", "") == normalizedOrderNumber &&
+                    (so.CreatedByUserId == userId || 
+                     (!string.IsNullOrEmpty(currentUser.Email) && 
+                      !string.IsNullOrEmpty(so.CustomerEmail) && 
+                      so.CustomerEmail.ToLower() == currentUser.Email.ToLower())))
+                .ToListAsync();
+            
+            var order = orders.FirstOrDefault();
+
+            if (order == null)
+            {
+                return NotFound("Order not found. Please check your order number.");
+            }
+
+            var response = await GetOrderResponse(order.Id);
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error tracking order by number");
+            return StatusCode(500, new { message = "An error occurred while tracking the order" });
         }
     }
 

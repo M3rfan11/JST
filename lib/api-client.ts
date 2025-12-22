@@ -199,7 +199,13 @@ export const api = {
 
   // Promo codes / Coupons
   coupons: {
-    validate: (code: string) => apiClient.post('/api/coupons/validate', { code }),
+    validate: (code: string, orderAmount: number, productIds?: number[], userId?: number) => 
+      apiClient.post('/api/promocode/validate', { 
+        code, 
+        orderAmount, 
+        productIds: productIds || [],
+        userId: userId || null
+      }),
     apply: (code: string) => apiClient.post('/api/coupons/apply', { code }),
   },
 
@@ -250,7 +256,16 @@ export const api = {
     createGuestOrder: (data: unknown) => apiClient.post('/api/customerorder/guest-order', data),
     createOrder: (data: unknown) => apiClient.post('/api/customerorder/order', data),
     getOrders: () => apiClient.get('/api/customerorder/orders'),
-    trackOrder: (orderId: string) => apiClient.get(`/api/customerorder/track/${orderId}`),
+    getOrderById: (id: number) => apiClient.get(`/api/customerorder/order/${id}`),
+    trackOrderByNumber: (orderNumber: string, email?: string) => {
+      // If email is provided, use POST endpoint (for guest users)
+      // Otherwise, use GET endpoint (for authenticated users)
+      if (email) {
+        return apiClient.post('/api/customerorder/track-order', { orderNumber, email })
+      } else {
+        return apiClient.get(`/api/customerorder/track/${orderNumber}`)
+      }
+    },
   },
 
   // Product Inventory
