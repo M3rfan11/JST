@@ -84,70 +84,55 @@ namespace Api.Services
 
         public async Task<decimal> GetTotalRevenueAsync()
         {
-            if (_cache.TryGetValue(TOTAL_REVENUE_KEY, out decimal cachedRevenue))
-            {
-                return cachedRevenue;
-            }
-
-            // Calculate from database if not cached
+            // Always calculate from database to ensure real-time accuracy
+            // This ensures revenue updates immediately when orders are completed/delivered
             var totalRevenue = await _context.SalesOrders
                 .Where(so => so.Status == "Completed" || so.Status == "Delivered")
                 .SumAsync(so => so.TotalAmount);
 
-            _cache.Set(TOTAL_REVENUE_KEY, totalRevenue, TimeSpan.FromHours(24));
+            // Update cache for potential future use, but always recalculate from DB
+            _cache.Set(TOTAL_REVENUE_KEY, totalRevenue, TimeSpan.FromMinutes(5));
             return totalRevenue;
         }
 
         public async Task<decimal> GetTotalCostsAsync()
         {
-            if (_cache.TryGetValue(TOTAL_COSTS_KEY, out decimal cachedCosts))
-            {
-                return cachedCosts;
-            }
-
-            // Calculate from database if not cached
+            // Always calculate from database to ensure real-time accuracy
             var totalCosts = await _context.PurchaseOrders
                 .Where(po => po.Status == "Received")
                 .SumAsync(po => po.TotalAmount);
 
-            _cache.Set(TOTAL_COSTS_KEY, totalCosts, TimeSpan.FromHours(24));
+            // Update cache for potential future use, but always recalculate from DB
+            _cache.Set(TOTAL_COSTS_KEY, totalCosts, TimeSpan.FromMinutes(5));
             return totalCosts;
         }
 
         public async Task<decimal> GetStoreRevenueAsync(int storeId)
         {
-            var cacheKey = string.Format(STORE_REVENUE_KEY, storeId);
-            if (_cache.TryGetValue(cacheKey, out decimal cachedRevenue))
-            {
-                return cachedRevenue;
-            }
-
-            // Calculate from database if not cached
+            // Always calculate from database to ensure real-time accuracy
             var storeRevenue = await _context.SalesItems
                 .Include(si => si.SalesOrder)
                 .Where(si => si.WarehouseId == storeId && 
                             (si.SalesOrder.Status == "Completed" || si.SalesOrder.Status == "Delivered"))
                 .SumAsync(si => si.TotalPrice);
 
-            _cache.Set(cacheKey, storeRevenue, TimeSpan.FromHours(24));
+            // Update cache for potential future use, but always recalculate from DB
+            var cacheKey = string.Format(STORE_REVENUE_KEY, storeId);
+            _cache.Set(cacheKey, storeRevenue, TimeSpan.FromMinutes(5));
             return storeRevenue;
         }
 
         public async Task<decimal> GetStoreCostsAsync(int storeId)
         {
-            var cacheKey = string.Format(STORE_COSTS_KEY, storeId);
-            if (_cache.TryGetValue(cacheKey, out decimal cachedCosts))
-            {
-                return cachedCosts;
-            }
-
-            // Calculate from database if not cached
+            // Always calculate from database to ensure real-time accuracy
             var storeCosts = await _context.PurchaseItems
                 .Include(pi => pi.PurchaseOrder)
                 .Where(pi => pi.WarehouseId == storeId && pi.PurchaseOrder.Status == "Received")
                 .SumAsync(pi => pi.TotalPrice);
 
-            _cache.Set(cacheKey, storeCosts, TimeSpan.FromHours(24));
+            // Update cache for potential future use, but always recalculate from DB
+            var cacheKey = string.Format(STORE_COSTS_KEY, storeId);
+            _cache.Set(cacheKey, storeCosts, TimeSpan.FromMinutes(5));
             return storeCosts;
         }
 
