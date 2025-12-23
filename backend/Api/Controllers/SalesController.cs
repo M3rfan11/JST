@@ -311,7 +311,17 @@ public class SalesController : ControllerBase
         order.CustomerAddress = request.CustomerAddress ?? order.CustomerAddress;
         order.CustomerPhone = request.CustomerPhone ?? order.CustomerPhone;
         order.CustomerEmail = request.CustomerEmail ?? order.CustomerEmail;
-        order.DeliveryDate = request.DeliveryDate ?? order.DeliveryDate;
+        
+        // Handle status change to Delivered - set actual delivery date
+        if (!string.IsNullOrEmpty(request.Status) && request.Status == "Delivered" && oldStatus != "Delivered")
+        {
+            order.DeliveryDate = request.DeliveryDate ?? DateTime.UtcNow;
+        }
+        else
+        {
+            order.DeliveryDate = request.DeliveryDate ?? order.DeliveryDate;
+        }
+        
         order.Status = request.Status ?? order.Status;
         order.PaymentStatus = request.PaymentStatus ?? order.PaymentStatus;
         if (request.DownPayment.HasValue)

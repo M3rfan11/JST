@@ -504,8 +504,14 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.ProductId)
                 .OnDelete(DeleteBehavior.Cascade);
                 
-            // Ensure unique combination of User and Product
-            entity.HasIndex(e => new { e.UserId, e.ProductId }).IsUnique();
+            entity.HasOne(e => e.ProductVariant)
+                .WithMany()
+                .HasForeignKey(e => e.ProductVariantId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
+            // Ensure unique combination of User, Product, and Variant
+            // This allows same product with different variants in cart
+            entity.HasIndex(e => new { e.UserId, e.ProductId, e.ProductVariantId }).IsUnique();
         });
 
         // Configure OrderTracking entity

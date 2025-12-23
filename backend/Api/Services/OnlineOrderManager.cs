@@ -236,12 +236,16 @@ public class OnlineOrderManager : IOnlineOrderManager
             switch (normalizedStatus)
             {
                 case "SHIPPED":
+                    // Set estimated delivery date (3 days from now if not provided)
                     order.DeliveryDate = request.DeliveryDate ?? DateTime.UtcNow.AddDays(3);
                     result.ActionsPerformed.Add("Delivery date set");
                     break;
                 case "DELIVERED":
+                    // Set actual delivery date to current time when order is marked as delivered
+                    order.DeliveryDate = DateTime.UtcNow;
                     order.PaymentStatus = "Paid";
                     result.ActionsPerformed.Add("Payment status updated to Paid");
+                    result.ActionsPerformed.Add("Actual delivery date recorded");
                     break;
                 case "ACCEPTED":
                     // For InstaPay orders, when status changes to ACCEPTED, update payment status

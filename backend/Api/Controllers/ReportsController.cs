@@ -593,45 +593,143 @@ public class ReportsController : ControllerBase
             var thisMonthStart = new DateTime(now.Year, now.Month, 1);
             var lastMonthStart = thisMonthStart.AddMonths(-1);
 
-            // Get all customers with their orders
-            var customers = await _context.Customers
+            // Get all registered customers with their orders
+            var registeredCustomers = await _context.Customers
                 .Include(c => c.SalesOrders)
                 .Where(c => c.IsActive)
                 .ToListAsync();
 
-            var totalCustomers = customers.Count;
-            var newThisMonth = customers.Count(c => c.CreatedAt >= thisMonthStart);
-            var newLastMonth = customers.Count(c => c.CreatedAt >= lastMonthStart && c.CreatedAt < thisMonthStart);
+            // Get all guest customers from SalesOrders (orders without a linked CustomerId or with guest info)
+            // Group by email first, then by phone if no email
+            var guestOrdersByEmail = await _context.SalesOrders
+                .Where(so => !string.IsNullOrEmpty(so.CustomerEmail))
+                .GroupBy(so => so.CustomerEmail!.ToLower().Trim())
+                .Select(g => new
+                {
+                    Email = g.Key,
+                    Phone = g.OrderByDescending(so => so.CreatedAt).First().CustomerPhone,
+                    Name = g.OrderByDescending(so => so.CreatedAt).First().CustomerName ?? "Guest",
+                    Address = g.OrderByDescending(so => so.CreatedAt).First().CustomerAddress,
+                    Orders = g.ToList(),
+                    FirstOrderDate = g.Min(so => so.CreatedAt),
+                    CreatedAt = g.Min(so => so.CreatedAt) // Use first order date as creation date
+                })
+                .ToListAsync();
+
+            var guestOrdersByPhone = await _context.SalesOrders
+                .Where(so => string.IsNullOrEmpty(so.CustomerEmail) && !string.IsNullOrEmpty(so.CustomerPhone))
+                .GroupBy(so => so.CustomerPhone!.Trim())
+                .Select(g => new
+                {
+                    Email = (string?)null,
+                    Phone = g.Key,
+                    Name = g.OrderByDescending(so => so.CreatedAt).First().CustomerName ?? "Guest",
+                    Address = g.OrderByDescending(so => so.CreatedAt).First().CustomerAddress,
+                    Orders = g.ToList(),
+                    FirstOrderDate = g.Min(so => so.CreatedAt),
+                    CreatedAt = g.Min(so => so.CreatedAt)
+                })
+                .ToListAsync();
+
+            // Combine registered and guest customers
+            // Create a unified customer list for analytics
+            var allCustomers = new List<(int? CustomerId, string Name, string? Email, string? Phone, string? Address, DateTime CreatedAt, List<SalesOrder> Orders)>();
+
+            // Add registered customers
+            foreach (var customer in registeredCustomers)
+            {
+                allCustomers.Add((
+                    customer.Id,
+                    customer.FullName,
+                    customer.Email,
+                    customer.PhoneNumber,
+                    customer.Address,
+                    customer.CreatedAt,
+                    customer.SalesOrders.ToList()
+                ));
+            }
+
+            // Add guest customers (only those not already in registered customers)
+            var registeredEmails = registeredCustomers
+                .Where(c => !string.IsNullOrEmpty(c.Email))
+                .Select(c => c.Email!.ToLower().Trim())
+                .ToHashSet();
+            
+            var registeredPhones = registeredCustomers
+                .Where(c => !string.IsNullOrEmpty(c.PhoneNumber))
+                .Select(c => c.PhoneNumber!.Trim())
+                .ToHashSet();
+
+            foreach (var guest in guestOrdersByEmail)
+            {
+                // Skip if this email is already a registered customer
+                if (!registeredEmails.Contains(guest.Email))
+                {
+                    allCustomers.Add((
+                        null, // No CustomerId for guests
+                        guest.Name,
+                        guest.Email,
+                        guest.Phone,
+                        guest.Address,
+                        guest.CreatedAt,
+                        guest.Orders
+                    ));
+                }
+            }
+
+            foreach (var guest in guestOrdersByPhone)
+            {
+                // Skip if this phone is already a registered customer or if we already added by email
+                if (!registeredPhones.Contains(guest.Phone) && 
+                    (string.IsNullOrEmpty(guest.Email) || !registeredEmails.Contains(guest.Email.ToLower().Trim())))
+                {
+                    allCustomers.Add((
+                        null, // No CustomerId for guests
+                        guest.Name,
+                        guest.Email,
+                        guest.Phone,
+                        guest.Address,
+                        guest.CreatedAt,
+                        guest.Orders
+                    ));
+                }
+            }
+
+            // Calculate statistics
+            var totalCustomers = allCustomers.Count;
+            var newThisMonth = allCustomers.Count(c => c.CreatedAt >= thisMonthStart);
+            var newLastMonth = allCustomers.Count(c => c.CreatedAt >= lastMonthStart && c.CreatedAt < thisMonthStart);
             
             var growthPercentage = newLastMonth > 0 
                 ? ((decimal)(newThisMonth - newLastMonth) / newLastMonth) * 100 
                 : (newThisMonth > 0 ? 100 : 0);
 
-            // Calculate CLV
-            var customersWithOrders = customers.Where(c => c.SalesOrders.Any()).ToList();
+            // Calculate CLV (only customers with orders)
+            var customersWithOrders = allCustomers.Where(c => c.Orders.Any()).ToList();
             var avgClv = customersWithOrders.Any() 
-                ? customersWithOrders.Average(c => c.SalesOrders.Sum(o => o.TotalAmount)) 
+                ? customersWithOrders.Average(c => c.Orders.Sum(o => o.TotalAmount)) 
                 : 0;
 
             // Repeat purchase rate
-            var repeatCustomers = customersWithOrders.Count(c => c.SalesOrders.Count > 1);
+            var repeatCustomers = customersWithOrders.Count(c => c.Orders.Count > 1);
             var repeatPurchaseRate = customersWithOrders.Any() 
                 ? ((decimal)repeatCustomers / customersWithOrders.Count) * 100 
                 : 0;
 
             // Top customers
             var topCustomers = customersWithOrders
-                .OrderByDescending(c => c.SalesOrders.Sum(o => o.TotalAmount))
+                .OrderByDescending(c => c.Orders.Sum(o => o.TotalAmount))
                 .Take(10)
-                .Select(c => new TopCustomerData
+                .Select((c, index) => new TopCustomerData
                 {
-                    CustomerId = c.Id,
-                    CustomerName = c.FullName,
+                    // Generate unique negative ID for guest customers based on email/phone hash
+                    CustomerId = c.CustomerId ?? -(Math.Abs((c.Email ?? c.Phone ?? $"guest-{index}").GetHashCode())),
+                    CustomerName = c.Name,
                     Email = c.Email,
-                    TotalSpent = c.SalesOrders.Sum(o => o.TotalAmount),
-                    OrderCount = c.SalesOrders.Count,
-                    LastOrderDate = c.SalesOrders.Max(o => o.OrderDate),
-                    AverageOrderValue = c.SalesOrders.Average(o => o.TotalAmount)
+                    TotalSpent = c.Orders.Sum(o => o.TotalAmount),
+                    OrderCount = c.Orders.Count,
+                    LastOrderDate = c.Orders.Max(o => o.OrderDate),
+                    AverageOrderValue = c.Orders.Average(o => o.TotalAmount)
                 })
                 .ToList();
 
@@ -643,12 +741,12 @@ public class ReportsController : ControllerBase
                 {
                     Date = date,
                     Label = date.ToString("MMM yyyy"),
-                    NewCustomers = customers.Count(c => c.CreatedAt.Year == date.Year && c.CreatedAt.Month == date.Month)
+                    NewCustomers = allCustomers.Count(c => c.CreatedAt.Year == date.Year && c.CreatedAt.Month == date.Month)
                 })
                 .ToList();
 
             // Geographic distribution (by city from address)
-            var geoDistribution = customers
+            var geoDistribution = allCustomers
                 .Where(c => !string.IsNullOrEmpty(c.Address))
                 .GroupBy(c => ExtractCity(c.Address ?? ""))
                 .Where(g => !string.IsNullOrEmpty(g.Key))
@@ -656,7 +754,7 @@ public class ReportsController : ControllerBase
                 {
                     Region = g.Key,
                     CustomerCount = g.Count(),
-                    TotalRevenue = g.Sum(c => c.SalesOrders.Sum(o => o.TotalAmount))
+                    TotalRevenue = g.Sum(c => c.Orders.Sum(o => o.TotalAmount))
                 })
                 .OrderByDescending(g => g.CustomerCount)
                 .Take(10)
@@ -999,22 +1097,8 @@ public class ReportsController : ControllerBase
                 PaidOrders = sales.Count(s => s.PaymentStatus == "Paid"),
                 PendingAmount = sales.Where(s => s.PaymentStatus == "Pending").Sum(s => s.TotalAmount),
                 PendingOrders = sales.Count(s => s.PaymentStatus == "Pending"),
-                PartiallyPaidAmount = sales.Where(s => s.PaymentStatus == "PartiallyPaid").Sum(s => s.TotalAmount),
-                PartiallyPaidOrders = sales.Count(s => s.PaymentStatus == "PartiallyPaid"),
                 RefundedAmount = sales.Where(s => s.PaymentStatus == "Refunded").Sum(s => s.TotalAmount),
                 RefundedOrders = sales.Count(s => s.PaymentStatus == "Refunded")
-            };
-
-            // Down payment summary
-            var ordersWithDownPayment = sales.Where(s => s.DownPayment.HasValue && s.DownPayment.Value > 0).ToList();
-            var downPaymentSummary = new DownPaymentSummary
-            {
-                TotalDownPayments = ordersWithDownPayment.Sum(s => s.DownPayment ?? 0),
-                OrdersWithDownPayments = ordersWithDownPayment.Count,
-                AverageDownPaymentPercentage = ordersWithDownPayment.Any() 
-                    ? ordersWithDownPayment.Average(s => (s.DownPayment ?? 0) / s.TotalAmount * 100) 
-                    : 0,
-                OutstandingBalance = ordersWithDownPayment.Sum(s => s.TotalAmount - (s.DownPayment ?? 0))
             };
 
             return Ok(new FinancialReportResponse
@@ -1030,7 +1114,6 @@ public class ReportsController : ControllerBase
                 ProductMargins = productMargins,
                 MonthlyTrend = monthlyTrend,
                 PaymentStatus = paymentStatus,
-                DownPayments = downPaymentSummary,
                 GeneratedAt = DateTime.UtcNow
             });
         }
@@ -1207,10 +1290,37 @@ public class ReportsController : ControllerBase
                 .ToList();
 
             // Average fulfillment time (from created to delivered)
-            var deliveredOrders = orders.Where(o => o.Status == "Delivered" && o.DeliveryDate.HasValue);
-            var avgFulfillmentTime = deliveredOrders.Any()
-                ? deliveredOrders.Average(o => (o.DeliveryDate!.Value - o.CreatedAt).TotalHours)
-                : 0;
+            // Use actual delivery time: DeliveryDate if set and not in the future, otherwise UpdatedAt when status is Delivered
+            var deliveredOrders = orders.Where(o => o.Status == "Delivered").ToList();
+            var avgFulfillmentTime = 0.0;
+            
+            if (deliveredOrders.Any())
+            {
+                var fulfillmentTimes = deliveredOrders.Select(o =>
+                {
+                    DateTime actualDeliveryTime;
+                    
+                    // Use DeliveryDate if it's set and not in the future (actual delivery)
+                    // Otherwise use UpdatedAt as the time when status was changed to Delivered
+                    if (o.DeliveryDate.HasValue && o.DeliveryDate.Value <= DateTime.UtcNow)
+                    {
+                        actualDeliveryTime = o.DeliveryDate.Value;
+                    }
+                    else if (o.UpdatedAt.HasValue)
+                    {
+                        actualDeliveryTime = o.UpdatedAt.Value;
+                    }
+                    else
+                    {
+                        // Fallback to CreatedAt if neither is available (shouldn't happen)
+                        actualDeliveryTime = o.CreatedAt;
+                    }
+                    
+                    return (actualDeliveryTime - o.CreatedAt).TotalHours;
+                }).ToList();
+                
+                avgFulfillmentTime = fulfillmentTimes.Any() ? fulfillmentTimes.Average() : 0;
+            }
 
             return Ok(new OrderStatusDistributionResponse
             {

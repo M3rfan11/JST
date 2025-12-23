@@ -3,6 +3,7 @@ using System;
 using Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251223124510_AddProductVariantIdToShoppingCart")]
+    partial class AddProductVariantIdToShoppingCart
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.9");
@@ -233,42 +236,6 @@ namespace Api.Migrations
                     b.HasIndex("UpdatedByUserId");
 
                     b.ToTable("OrderTrackings");
-                });
-
-            modelBuilder.Entity("Api.Models.PaymentProof", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("FileName")
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long?>("FileSize")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("FileType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FileUrl")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("OrderId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrderId");
-
-                    b.ToTable("PaymentProofs");
                 });
 
             modelBuilder.Entity("Api.Models.Permission", b =>
@@ -1263,13 +1230,6 @@ namespace Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("AdminNote")
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("ConfirmedAt")
-                        .HasColumnType("TEXT");
-
                     b.Property<int?>("ConfirmedByUserId")
                         .HasColumnType("INTEGER");
 
@@ -1320,17 +1280,9 @@ namespace Api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("PaymentMethod")
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("PaymentStatus")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RejectionReason")
-                        .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
@@ -1675,17 +1627,6 @@ namespace Api.Migrations
                     b.Navigation("Order");
 
                     b.Navigation("UpdatedByUser");
-                });
-
-            modelBuilder.Entity("Api.Models.PaymentProof", b =>
-                {
-                    b.HasOne("Api.Models.SalesOrder", "Order")
-                        .WithMany("PaymentProofs")
-                        .HasForeignKey("OrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("Api.Models.Product", b =>
@@ -2216,8 +2157,6 @@ namespace Api.Migrations
 
             modelBuilder.Entity("Api.Models.SalesOrder", b =>
                 {
-                    b.Navigation("PaymentProofs");
-
                     b.Navigation("SalesItems");
                 });
 

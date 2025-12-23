@@ -82,6 +82,7 @@ public class CustomerOrderController : ControllerBase
                 {
                     Id = sc.Id,
                     ProductId = sc.ProductId,
+                    VariantId = sc.ProductVariantId,
                     ProductName = sc.Product.Name,
                     ProductSKU = sc.Product.SKU,
                     ProductDescription = sc.Product.Description,
@@ -90,9 +91,13 @@ public class CustomerOrderController : ControllerBase
                     TotalPrice = sc.Quantity * sc.UnitPrice,
                     Unit = sc.Unit,
                     CategoryName = sc.Product.Category.Name,
-                    AvailableQuantity = sc.Product.ProductInventories
-                        .Where(pi => pi.WarehouseId == onlineWarehouse.Id)
-                        .Sum(pi => pi.Quantity),
+                    AvailableQuantity = sc.ProductVariantId.HasValue
+                        ? _context.VariantInventories
+                            .Where(vi => vi.ProductVariantId == sc.ProductVariantId.Value && vi.WarehouseId == onlineWarehouse.Id)
+                            .Sum(vi => vi.Quantity)
+                        : sc.Product.ProductInventories
+                            .Where(pi => pi.WarehouseId == onlineWarehouse.Id)
+                            .Sum(pi => pi.Quantity),
                     CreatedAt = sc.CreatedAt,
                     UpdatedAt = sc.UpdatedAt
                 })
@@ -151,10 +156,34 @@ public class CustomerOrderController : ControllerBase
                 return NotFound("Product not found or not available");
             }
 
+            // Validate variant if provided
+            if (request.VariantId.HasValue)
+            {
+                var variant = await _context.ProductVariants
+                    .FirstOrDefaultAsync(pv => pv.Id == request.VariantId.Value && pv.ProductId == request.ProductId && pv.IsActive);
+                
+                if (variant == null)
+                {
+                    return BadRequest($"Variant ID {request.VariantId.Value} not found or not available for this product");
+                }
+            }
+
             // Get available quantity (always calculate for display, even if AlwaysAvailable)
-            var availableQuantity = product.ProductInventories
-                .Where(pi => pi.WarehouseId == onlineWarehouse.Id)
-                .Sum(pi => pi.Quantity);
+            decimal availableQuantity = 0;
+            if (request.VariantId.HasValue)
+            {
+                // Check variant inventory
+                availableQuantity = await _context.VariantInventories
+                    .Where(vi => vi.ProductVariantId == request.VariantId.Value && vi.WarehouseId == onlineWarehouse.Id)
+                    .SumAsync(vi => vi.Quantity);
+            }
+            else
+            {
+                // Check product inventory
+                availableQuantity = product.ProductInventories
+                    .Where(pi => pi.WarehouseId == onlineWarehouse.Id)
+                    .Sum(pi => pi.Quantity);
+            }
 
             // Skip inventory check if product is marked as AlwaysAvailable
             if (!product.AlwaysAvailable)
@@ -165,9 +194,11 @@ public class CustomerOrderController : ControllerBase
                 }
             }
 
-            // Check if item already exists in cart
+            // Check if item already exists in cart (same product AND variant)
             var existingCartItem = await _context.ShoppingCarts
-                .FirstOrDefaultAsync(sc => sc.UserId == userId && sc.ProductId == request.ProductId);
+                .FirstOrDefaultAsync(sc => sc.UserId == userId 
+                    && sc.ProductId == request.ProductId 
+                    && sc.ProductVariantId == request.VariantId);
 
             if (existingCartItem != null)
             {
@@ -178,12 +209,24 @@ public class CustomerOrderController : ControllerBase
             else
             {
                 // Add new item
+                // Use variant price if variant has price override, otherwise use product price
+                decimal unitPrice = product.Price;
+                if (request.VariantId.HasValue)
+                {
+                    var variant = await _context.ProductVariants.FindAsync(request.VariantId.Value);
+                    if (variant?.PriceOverride.HasValue == true)
+                    {
+                        unitPrice = variant.PriceOverride.Value;
+                    }
+                }
+
                 var cartItem = new ShoppingCart
                 {
                     UserId = userId,
                     ProductId = request.ProductId,
+                    ProductVariantId = request.VariantId,
                     Quantity = request.Quantity,
-                    UnitPrice = product.Price,
+                    UnitPrice = unitPrice,
                     Unit = product.Unit
                 };
                 _context.ShoppingCarts.Add(cartItem);
@@ -195,11 +238,14 @@ public class CustomerOrderController : ControllerBase
             var cartItemResponse = await _context.ShoppingCarts
                 .Include(sc => sc.Product)
                 .ThenInclude(p => p.Category)
-                .Where(sc => sc.UserId == userId && sc.ProductId == request.ProductId)
+                .Where(sc => sc.UserId == userId 
+                    && sc.ProductId == request.ProductId 
+                    && sc.ProductVariantId == request.VariantId)
                 .Select(sc => new CartItemResponse
                 {
                     Id = sc.Id,
                     ProductId = sc.ProductId,
+                    VariantId = sc.ProductVariantId,
                     ProductName = sc.Product.Name,
                     ProductSKU = sc.Product.SKU,
                     ProductDescription = sc.Product.Description,
@@ -802,6 +848,7 @@ public class CustomerOrderController : ControllerBase
                 orderItems = cartItems.Select(sc => new CreateOnlineOrderItemRequest
                 {
                     ProductId = sc.ProductId,
+                    VariantId = sc.ProductVariantId,
                     Quantity = sc.Quantity,
                     UnitPrice = sc.UnitPrice,
                     Unit = sc.Unit
@@ -832,9 +879,20 @@ public class CustomerOrderController : ControllerBase
                     continue;
                 }
 
-                var availableQuantity = await _context.ProductInventories
-                    .Where(pi => pi.ProductId == item.ProductId && pi.WarehouseId == onlineWarehouse.Id)
-                    .SumAsync(pi => pi.Quantity);
+                // Check variant inventory if variantId is provided
+                decimal availableQuantity = 0;
+                if (item.VariantId.HasValue)
+                {
+                    availableQuantity = await _context.VariantInventories
+                        .Where(vi => vi.ProductVariantId == item.VariantId.Value && vi.WarehouseId == onlineWarehouse.Id)
+                        .SumAsync(vi => vi.Quantity);
+                }
+                else
+                {
+                    availableQuantity = await _context.ProductInventories
+                        .Where(pi => pi.ProductId == item.ProductId && pi.WarehouseId == onlineWarehouse.Id)
+                        .SumAsync(pi => pi.Quantity);
+                }
 
                 if (availableQuantity < item.Quantity)
                 {

@@ -39,6 +39,8 @@ interface VariantInventory {
   quantity: number
   unit: string | null
   warehouseId: number
+  minimumStockLevel: number | null
+  maximumStockLevel: number | null
 }
 
 export default function InventoryPage() {
@@ -49,6 +51,8 @@ export default function InventoryPage() {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [stockQuantity, setStockQuantity] = useState("")
+  const [minimumStockLevel, setMinimumStockLevel] = useState("")
+  const [maximumStockLevel, setMaximumStockLevel] = useState("")
   const [updating, setUpdating] = useState(false)
   const { toast } = useToast()
 
@@ -208,6 +212,8 @@ export default function InventoryPage() {
                   quantity: onlineVariantInventory.quantity,
                   unit: onlineVariantInventory.unit,
                   warehouseId: onlineVariantInventory.warehouseId,
+                  minimumStockLevel: (onlineVariantInventory as any).minimumStockLevel ?? (onlineVariantInventory as any).MinimumStockLevel ?? null,
+                  maximumStockLevel: (onlineVariantInventory as any).maximumStockLevel ?? (onlineVariantInventory as any).MaximumStockLevel ?? null,
                 } : null,
               })
             } catch (error) {
@@ -285,10 +291,16 @@ export default function InventoryPage() {
     
     if (variant && variant.variantInventory) {
       setStockQuantity(variant.variantInventory.quantity.toString())
+      setMinimumStockLevel(variant.variantInventory.minimumStockLevel?.toString() || "")
+      setMaximumStockLevel(variant.variantInventory.maximumStockLevel?.toString() || "")
     } else if (!variant && product.productInventory) {
       setStockQuantity(product.productInventory.quantity.toString())
+      setMinimumStockLevel("")
+      setMaximumStockLevel("")
     } else {
       setStockQuantity("0")
+      setMinimumStockLevel("")
+      setMaximumStockLevel("")
     }
     
     setIsDialogOpen(true)
@@ -313,9 +325,24 @@ export default function InventoryPage() {
       if (selectedVariant) {
         // Update variant inventory for Online Store warehouse
         // Use the variant/warehouse endpoint which creates or updates
+        const minLevel = minimumStockLevel ? parseFloat(minimumStockLevel) : null
+        const maxLevel = maximumStockLevel ? parseFloat(maximumStockLevel) : null
+        
+        // Validate min/max if both are provided
+        if (minLevel !== null && maxLevel !== null && minLevel > maxLevel) {
+          toast({
+            title: "Invalid Stock Levels",
+            description: "Minimum stock level cannot be greater than maximum stock level",
+            variant: "destructive",
+          })
+          return
+        }
+        
         await apiClient.put(`/api/variantinventory/variant/${selectedVariant.id}/warehouse/${onlineWarehouseId}`, {
           quantity,
           unit: selectedVariant.variantInventory?.unit || "piece",
+          minimumStockLevel: minLevel,
+          maximumStockLevel: maxLevel,
         })
       } else {
         // Update product inventory
@@ -494,6 +521,32 @@ export default function InventoryPage() {
                 step="0.01"
                 value={stockQuantity}
                 onChange={(e) => setStockQuantity(e.target.value)}
+                style={{ fontFamily: '"Dream Avenue"' }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="minimumStockLevel" style={{ fontFamily: '"Dream Avenue"' }}>Minimum Stock Level (Optional)</Label>
+              <Input
+                id="minimumStockLevel"
+                type="number"
+                min="0"
+                step="0.01"
+                value={minimumStockLevel}
+                onChange={(e) => setMinimumStockLevel(e.target.value)}
+                placeholder="Leave empty for no minimum"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="maximumStockLevel" style={{ fontFamily: '"Dream Avenue"' }}>Maximum Stock Level (Optional)</Label>
+              <Input
+                id="maximumStockLevel"
+                type="number"
+                min="0"
+                step="0.01"
+                value={maximumStockLevel}
+                onChange={(e) => setMaximumStockLevel(e.target.value)}
+                placeholder="Leave empty for no maximum"
                 style={{ fontFamily: '"Dream Avenue"' }}
               />
             </div>

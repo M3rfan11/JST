@@ -12,6 +12,8 @@ namespace Api.Models
         [Required]
         public int ProductId { get; set; }
         
+        public int? ProductVariantId { get; set; } // Optional: tracks which variant is in cart
+        
         [Required]
         [Range(0.01, double.MaxValue, ErrorMessage = "Quantity must be greater than 0")]
         public decimal Quantity { get; set; }
@@ -30,5 +32,6 @@ namespace Api.Models
         // Navigation properties
         public virtual User User { get; set; } = null!;
         public virtual Product Product { get; set; } = null!;
+        public virtual ProductVariant? ProductVariant { get; set; }
     }
 }
