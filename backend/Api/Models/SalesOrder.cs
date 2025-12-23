@@ -32,13 +32,24 @@ namespace Api.Models
         public decimal? DownPayment { get; set; } // Down payment amount for furniture orders
         
         [MaxLength(20)]
-        public string Status { get; set; } = "Pending"; // Pending, Confirmed, Shipped, Delivered, Cancelled
+        public string Status { get; set; } = "Pending"; // Pending, PENDING_PAYMENT, PROOF_SUBMITTED, UNDER_REVIEW, ACCEPTED, REJECTED, Confirmed, Shipped, Delivered, Cancelled
         
         [MaxLength(20)]
         public string PaymentStatus { get; set; } = "Pending"; // Pending, Paid, PartiallyPaid, Refunded
         
+        [MaxLength(50)]
+        public string? PaymentMethod { get; set; } // Cash on Delivery, InstaPay, Credit Card, Bank Transfer
+        
         [MaxLength(500)]
         public string? Notes { get; set; }
+        
+        [MaxLength(1000)]
+        public string? AdminNote { get; set; } // Admin notes for payment review
+        
+        [MaxLength(500)]
+        public string? RejectionReason { get; set; } // Reason for payment rejection
+        
+        public DateTime? ConfirmedAt { get; set; } // When payment was confirmed by admin
         
         public int CreatedByUserId { get; set; }
         
@@ -52,5 +63,6 @@ namespace Api.Models
         public virtual User CreatedByUser { get; set; } = null!;
         public virtual User? ConfirmedByUser { get; set; }
         public virtual ICollection<SalesItem> SalesItems { get; set; } = new List<SalesItem>();
+        public virtual ICollection<PaymentProof> PaymentProofs { get; set; } = new List<PaymentProof>();
     }
 }

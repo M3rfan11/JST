@@ -157,6 +157,14 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
       // Show success message
       const orderNumber =
         orderResponse?.orderNumber || orderResponse?.order_number || "N/A";
+      const orderId = orderResponse?.orderId || orderResponse?.id;
+
+      // If InstaPay, redirect to payment pending page
+      if (formData.paymentMethod === "InstaPay" && orderId) {
+        router.push(`/orders/${orderId}/payment`);
+        return;
+      }
+
       toast({
         title: "Order placed successfully!",
         description: `Order #${orderNumber} has been created.`,
@@ -417,6 +425,7 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
               style={{ fontFamily: '"Dream Avenue"' }}
             >
               <option value="Cash on Delivery">Cash on Delivery</option>
+              <option value="InstaPay">InstaPay</option>
               <option value="Credit Card">Credit Card</option>
               <option value="Bank Transfer">Bank Transfer</option>
             </select>

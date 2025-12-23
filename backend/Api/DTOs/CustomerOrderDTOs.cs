@@ -69,6 +69,9 @@ namespace Api.DTOs
         [MaxLength(500)]
         public string? Notes { get; set; }
 
+        [MaxLength(50)]
+        public string? PaymentMethod { get; set; } // Cash on Delivery, InstaPay, Credit Card, Bank Transfer
+
         public string? PromoCode { get; set; } // Optional promo code
 
         public bool UseCartItems { get; set; } = true; // If true, use cart items; if false, use provided items

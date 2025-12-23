@@ -1,21 +1,27 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Save, Plus, X } from "lucide-react"
+import { Save, Plus, X, Upload, Trash2, Image as ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
+import Image from "next/image"
 
 export default function SettingsPage() {
   const { toast } = useToast()
   const [messages, setMessages] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
+  const [qrFile, setQrFile] = useState<File | null>(null)
+  const [uploadingQr, setUploadingQr] = useState(false)
+  const [deletingQr, setDeletingQr] = useState(false)
 
   useEffect(() => {
     loadMessages()
+    loadQrCode()
   }, [])
 
   const loadMessages = async () => {
@@ -127,6 +133,104 @@ export default function SettingsPage() {
     setMessages(newMessages)
   }
 
+  const loadQrCode = async () => {
+    try {
+      const response = await api.settings.getInstaPayQr() as { qrCodeUrl?: string | null }
+      if (response && response.qrCodeUrl) {
+        setQrCodeUrl(response.qrCodeUrl)
+      }
+    } catch (error: any) {
+      console.error("Error loading QR code:", error)
+    }
+  }
+
+  const handleQrFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload an image file (JPG, PNG, GIF, WEBP).",
+          variant: "destructive",
+        })
+        return
+      }
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please upload a file smaller than 2MB.",
+          variant: "destructive",
+        })
+        return
+      }
+      setQrFile(file)
+    }
+  }
+
+  const handleUploadQr = async () => {
+    if (!qrFile) {
+      toast({
+        title: "No file selected",
+        description: "Please select a QR code image to upload.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setUploadingQr(true)
+      const formData = new FormData()
+      formData.append("file", qrFile)
+      
+      const response = await api.settings.uploadInstaPayQr(formData) as { qrCodeUrl: string }
+      setQrCodeUrl(response.qrCodeUrl)
+      setQrFile(null)
+      
+      toast({
+        title: "Success!",
+        description: "InstaPay QR code uploaded successfully.",
+      })
+    } catch (error: any) {
+      console.error("Error uploading QR code:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to upload QR code.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingQr(false)
+    }
+  }
+
+  const handleDeleteQr = async () => {
+    if (!confirm("Are you sure you want to delete the InstaPay QR code?")) {
+      return
+    }
+
+    try {
+      setDeletingQr(true)
+      await api.settings.deleteInstaPayQr()
+      setQrCodeUrl(null)
+      setQrFile(null)
+      
+      toast({
+        title: "Success!",
+        description: "InstaPay QR code deleted successfully.",
+      })
+    } catch (error: any) {
+      console.error("Error deleting QR code:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete QR code.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingQr(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -201,6 +305,91 @@ export default function SettingsPage() {
               <Save className="h-4 w-4 mr-2" />
               {saving ? "Saving..." : "Save Changes"}
             </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* InstaPay QR Code Settings */}
+      <div className="bg-white rounded-lg shadow-sm border border-border p-6">
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-2" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+            InstaPay QR Code
+          </h2>
+          <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
+            Upload your InstaPay QR code image. This will be displayed on the payment page for customers to scan.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {/* Current QR Code Display */}
+          {qrCodeUrl && (
+            <div className="border border-border rounded-lg p-4 bg-gray-50">
+              <Label className="text-sm mb-2 block" style={{ fontFamily: '"Dream Avenue"' }}>
+                Current QR Code:
+              </Label>
+              <div className="flex items-center gap-4">
+                <div className="relative w-48 h-48 bg-white rounded-lg border border-border overflow-hidden">
+                  <Image
+                    src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${qrCodeUrl}`}
+                    alt="InstaPay QR Code"
+                    fill
+                    className="object-contain"
+                    unoptimized
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDeleteQr}
+                  disabled={deletingQr}
+                  className="text-red-600 border-red-600 hover:bg-red-50"
+                  style={{ fontFamily: '"Dream Avenue"' }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {deletingQr ? "Deleting..." : "Delete"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Upload New QR Code */}
+          <div>
+            <Label htmlFor="qrFile" className="text-sm mb-2 block" style={{ fontFamily: '"Dream Avenue"' }}>
+              {qrCodeUrl ? "Replace QR Code:" : "Upload QR Code:"}
+            </Label>
+            <div className="space-y-3">
+              <Input
+                id="qrFile"
+                type="file"
+                accept="image/*"
+                onChange={handleQrFileChange}
+                className="cursor-pointer"
+                disabled={uploadingQr}
+              />
+              <p className="text-xs text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
+                Accepted formats: JPG, PNG, GIF, WEBP (Max 2MB)
+              </p>
+              
+              {qrFile && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-sm" style={{ fontFamily: '"Dream Avenue"' }}>
+                    Selected: {qrFile.name} ({(qrFile.size / 1024).toFixed(2)} KB)
+                  </p>
+                </div>
+              )}
+
+              {qrFile && (
+                <Button
+                  type="button"
+                  onClick={handleUploadQr}
+                  disabled={uploadingQr}
+                  style={{ backgroundColor: '#3D0811', color: 'rgba(255, 255, 255, 1)', fontFamily: '"Dream Avenue"' }}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploadingQr ? "Uploading..." : "Upload QR Code"}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ using Api.Data;
 using Api.Services;
 using Api.Middleware;
 using Api;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -116,6 +117,14 @@ if (app.Configuration["Urls"]?.Contains("https") == true)
     app.UseHttpsRedirection();
 }
 app.UseCors("AllowAll");
+
+// Enable static file serving for payment proofs
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+        Path.Combine(builder.Environment.ContentRootPath, "wwwroot")),
+    RequestPath = ""
+});
 
 // Custom middleware
 app.UseMiddleware<AuditMiddleware>();

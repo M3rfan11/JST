@@ -42,6 +42,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PromoCodeUsage> PromoCodeUsages { get; set; }
     public DbSet<Wishlist> Wishlists { get; set; }
     public DbSet<Settings> Settings { get; set; }
+    public DbSet<PaymentProof> PaymentProofs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

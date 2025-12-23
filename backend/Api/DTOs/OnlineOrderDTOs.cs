@@ -80,9 +80,20 @@ namespace Api.DTOs
         public decimal TotalAmount { get; set; }
         public string Status { get; set; } = string.Empty;
         public string PaymentStatus { get; set; } = string.Empty;
+        public string? PaymentMethod { get; set; }
         public string? Notes { get; set; }
         public string CreatedByUserName { get; set; } = string.Empty;
         public List<OnlineOrderItemResponse> Items { get; set; } = new List<OnlineOrderItemResponse>();
+        public PaymentProofResponse? LatestPaymentProof { get; set; }
+    }
+
+    public class PaymentProofResponse
+    {
+        public int Id { get; set; }
+        public string FileUrl { get; set; } = string.Empty;
+        public string FileType { get; set; } = string.Empty;
+        public string? FileName { get; set; }
+        public DateTime UploadedAt { get; set; }
     }
 
     public class OnlineOrderItemResponse

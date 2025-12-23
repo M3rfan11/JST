@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, ChevronDown } from "lucide-react"
+import { Search, ChevronDown, Eye, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
+import Image from "next/image"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 interface OrderItem {
   id: number
@@ -16,6 +18,14 @@ interface OrderItem {
   unitPrice: number
   totalPrice: number
   unit?: string
+}
+
+interface PaymentProof {
+  id: number
+  fileUrl: string
+  fileType: string
+  fileName?: string
+  uploadedAt: string
 }
 
 interface Order {
@@ -31,8 +41,10 @@ interface Order {
   downPayment?: number
   status: string
   paymentStatus: string
+  paymentMethod?: string
   notes?: string
   items: OrderItem[]
+  latestPaymentProof?: PaymentProof
 }
 
 export default function OrdersPage() {
@@ -41,6 +53,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [updatingStatus, setUpdatingStatus] = useState<number | null>(null)
+  const [viewingProof, setViewingProof] = useState<PaymentProof | null>(null)
+  const [showProofDialog, setShowProofDialog] = useState(false)
 
   useEffect(() => {
     loadOrders()
@@ -74,8 +88,10 @@ export default function OrdersPage() {
         downPayment: o.downPayment || o.down_payment,
         status: o.status || "pending",
         paymentStatus: o.paymentStatus || o.payment_status || "Unpaid",
+        paymentMethod: o.paymentMethod || o.payment_method,
         notes: o.notes,
         items: o.items || [],
+        latestPaymentProof: o.latestPaymentProof || o.latest_payment_proof,
       }))
       
       setOrders(mappedOrders)
@@ -96,16 +112,18 @@ export default function OrdersPage() {
   const handleStatusUpdate = async (orderId: number, newStatus: string) => {
     try {
       setUpdatingStatus(orderId)
-      await api.onlineOrders.updateStatus(orderId, newStatus)
+      const response = await api.onlineOrders.updateStatus(orderId, newStatus) as any
       toast({
         title: "Success",
-        description: "Order status updated successfully.",
+        description: response?.message || "Order status updated successfully.",
       })
-      loadOrders() // Reload orders to get updated data
+      await loadOrders() // Reload orders to get updated data
     } catch (error: any) {
+      console.error("Error updating order status:", error)
+      const errorMessage = error?.data?.message || error?.message || "Failed to update order status."
       toast({
         title: "Error",
-        description: error.message || "Failed to update order status.",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -125,8 +143,16 @@ export default function OrdersPage() {
     switch (status.toLowerCase()) {
       case "pending":
         return "bg-yellow-100 text-yellow-800"
+      case "pending_payment":
+        return "bg-orange-100 text-orange-800"
+      case "proof_submitted":
+        return "bg-blue-100 text-blue-800"
+      case "under_review":
+        return "bg-indigo-100 text-indigo-800"
       case "accepted":
         return "bg-purple-100 text-purple-800"
+      case "rejected":
+        return "bg-red-100 text-red-800"
       case "shipped":
         return "bg-indigo-100 text-indigo-800"
       case "delivered":
@@ -143,9 +169,17 @@ export default function OrdersPage() {
     const status = currentStatus.toLowerCase()
     switch (status) {
       case "pending":
-        return ["Pending", "Accepted", "Cancelled"]
+        return ["Pending", "Accepted", "Cancelled", "PENDING_PAYMENT"]
+      case "pending_payment":
+        return ["PENDING_PAYMENT", "PROOF_SUBMITTED", "Cancelled"]
+      case "proof_submitted":
+        return ["PROOF_SUBMITTED", "UNDER_REVIEW", "ACCEPTED", "REJECTED", "Cancelled"]
+      case "under_review":
+        return ["UNDER_REVIEW", "ACCEPTED", "REJECTED", "Cancelled"]
       case "accepted":
         return ["Accepted", "Shipped", "Cancelled"]
+      case "rejected":
+        return ["REJECTED", "PROOF_SUBMITTED", "Cancelled"]
       case "shipped":
         return ["Shipped", "Delivered", "Cancelled"]
       case "delivered":
@@ -153,7 +187,8 @@ export default function OrdersPage() {
       case "cancelled":
         return ["Cancelled"] // No transitions allowed
       default:
-        return ["Pending", "Accepted", "Shipped", "Delivered", "Cancelled"]
+        // For unknown statuses, allow common transitions
+        return ["Pending", "Accepted", "Shipped", "Delivered", "Cancelled", "ACCEPTED", "REJECTED"]
     }
   }
 
@@ -256,13 +291,15 @@ export default function OrdersPage() {
                     <select
                       value={order.status}
                       onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
-                      disabled={updatingStatus === order.id || order.status.toLowerCase() === "delivered" || order.status.toLowerCase() === "cancelled"}
+                      disabled={updatingStatus === order.id || 
+                               order.status.toLowerCase() === "delivered" || 
+                               order.status.toLowerCase() === "cancelled"}
                       className="px-3 py-1.5 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-[#3D0811] disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ fontFamily: '"Dream Avenue"' }}
                     >
                       {getValidStatusTransitions(order.status).map((status) => (
                         <option key={status} value={status}>
-                          {status}
+                          {status.replace(/_/g, ' ')}
                         </option>
                       ))}
                     </select>
@@ -374,13 +411,154 @@ export default function OrdersPage() {
                         {order.paymentStatus}
                       </p>
                     </div>
+                    {order.paymentMethod && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1" style={{ fontFamily: '"Dream Avenue"' }}>
+                          Payment Method
+                        </p>
+                        <p className="text-sm font-medium" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                          {order.paymentMethod}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Payment Proof Section (for InstaPay orders) */}
+                {order.paymentMethod?.toUpperCase() === "INSTAPAY" && order.latestPaymentProof && (
+                  <div className="pt-4 border-t border-border">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                        Payment Proof
+                      </h4>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setViewingProof(order.latestPaymentProof!)
+                            setShowProofDialog(true)
+                          }}
+                          className="gap-2"
+                          style={{ fontFamily: '"Dream Avenue"' }}
+                        >
+                          <Eye className="h-4 w-4" />
+                          View Proof
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${order.latestPaymentProof!.fileUrl}`
+                            window.open(url, "_blank")
+                          }}
+                          className="gap-2"
+                          style={{ fontFamily: '"Dream Avenue"' }}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Open
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex items-center gap-3">
+                        {order.latestPaymentProof.fileType.startsWith("image/") ? (
+                          <div className="relative w-20 h-20 bg-white rounded border border-border overflow-hidden flex-shrink-0">
+                            <Image
+                              src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${order.latestPaymentProof.fileUrl}`}
+                              alt="Payment Proof"
+                              fill
+                              className="object-cover cursor-pointer hover:opacity-80"
+                              onClick={() => {
+                                setViewingProof(order.latestPaymentProof!)
+                                setShowProofDialog(true)
+                              }}
+                              unoptimized
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-20 h-20 bg-white rounded border border-border flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs text-muted-foreground">PDF</span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ fontFamily: '"Dream Avenue"' }}>
+                            {order.latestPaymentProof.fileName || "Payment Proof"}
+                          </p>
+                          <p className="text-xs text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
+                            Uploaded: {new Date(order.latestPaymentProof.uploadedAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })
         )}
       </div>
+
+      {/* Payment Proof View Dialog */}
+      <Dialog open={showProofDialog} onOpenChange={setShowProofDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: '"Dream Avenue"' }}>
+              Payment Proof
+            </DialogTitle>
+            <DialogDescription style={{ fontFamily: '"Dream Avenue"' }}>
+              {viewingProof?.fileName || "Payment proof document"}
+            </DialogDescription>
+          </DialogHeader>
+          {viewingProof && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-lg p-4 flex justify-center items-center min-h-[400px] max-h-[600px] overflow-auto border border-border">
+                {viewingProof.fileType.startsWith("image/") ? (
+                  <Image
+                    src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${viewingProof.fileUrl}`}
+                    alt="Payment Proof"
+                    width={800}
+                    height={800}
+                    className="object-contain max-w-full max-h-full"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="text-center">
+                    <p className="text-muted-foreground mb-4" style={{ fontFamily: '"Dream Avenue"' }}>
+                      PDF Document
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${viewingProof.fileUrl}`
+                        window.open(url, "_blank")
+                      }}
+                      style={{ fontFamily: '"Dream Avenue"' }}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open PDF in New Tab
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="text-sm text-muted-foreground space-y-1" style={{ fontFamily: '"Dream Avenue"' }}>
+                <p><strong>File Type:</strong> {viewingProof.fileType}</p>
+                {viewingProof.fileName && <p><strong>File Name:</strong> {viewingProof.fileName}</p>}
+                <p><strong>Uploaded:</strong> {new Date(viewingProof.uploadedAt).toLocaleString()}</p>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowProofDialog(false)}
+                  style={{ fontFamily: '"Dream Avenue"' }}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

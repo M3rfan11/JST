@@ -77,6 +77,7 @@ public class OnlineOrderController : ControllerBase
                 .Include(so => so.SalesItems)
                     .ThenInclude(si => si.Product)
                 .Include(so => so.CreatedByUser)
+                .Include(so => so.PaymentProofs)
                 .Where(so => so.SalesItems.Any(si => si.WarehouseId == onlineWarehouse.Id))
                 .Select(so => new OnlineOrderResponse
                 {
@@ -91,6 +92,7 @@ public class OnlineOrderController : ControllerBase
                     TotalAmount = so.TotalAmount,
                     Status = so.Status,
                     PaymentStatus = so.PaymentStatus,
+                    PaymentMethod = so.PaymentMethod,
                     Notes = so.Notes,
                     CreatedByUserName = so.CreatedByUser.FullName,
                     Items = so.SalesItems.Where(si => si.WarehouseId == onlineWarehouse.Id).Select(si => new OnlineOrderItemResponse
@@ -103,7 +105,18 @@ public class OnlineOrderController : ControllerBase
                         UnitPrice = si.UnitPrice,
                         TotalPrice = si.TotalPrice,
                         Unit = si.Unit
-                    }).ToList()
+                    }).ToList(),
+                    LatestPaymentProof = so.PaymentProofs
+                        .OrderByDescending(p => p.UploadedAt)
+                        .Select(p => new PaymentProofResponse
+                        {
+                            Id = p.Id,
+                            FileUrl = p.FileUrl,
+                            FileType = p.FileType,
+                            FileName = p.FileName,
+                            UploadedAt = p.UploadedAt
+                        })
+                        .FirstOrDefault()
                 })
                 .OrderByDescending(so => so.OrderDate)
                 .ToListAsync();
@@ -136,12 +149,17 @@ public class OnlineOrderController : ControllerBase
                 .Include(so => so.SalesItems)
                     .ThenInclude(si => si.Product)
                 .Include(so => so.CreatedByUser)
+                .Include(so => so.PaymentProofs)
                 .FirstOrDefaultAsync(so => so.Id == id && so.SalesItems.Any(si => si.WarehouseId == onlineWarehouse.Id));
 
             if (order == null)
             {
                 return NotFound();
             }
+
+            var latestProof = order.PaymentProofs
+                .OrderByDescending(p => p.UploadedAt)
+                .FirstOrDefault();
 
             var response = new OnlineOrderResponse
             {
@@ -156,6 +174,7 @@ public class OnlineOrderController : ControllerBase
                 TotalAmount = order.TotalAmount,
                 Status = order.Status,
                 PaymentStatus = order.PaymentStatus,
+                PaymentMethod = order.PaymentMethod,
                 Notes = order.Notes,
                 CreatedByUserName = order.CreatedByUser.FullName,
                 Items = order.SalesItems.Where(si => si.WarehouseId == onlineWarehouse.Id).Select(si => new OnlineOrderItemResponse
@@ -168,7 +187,15 @@ public class OnlineOrderController : ControllerBase
                     UnitPrice = si.UnitPrice,
                     TotalPrice = si.TotalPrice,
                     Unit = si.Unit
-                }).ToList()
+                }).ToList(),
+                LatestPaymentProof = latestProof != null ? new PaymentProofResponse
+                {
+                    Id = latestProof.Id,
+                    FileUrl = latestProof.FileUrl,
+                    FileType = latestProof.FileType,
+                    FileName = latestProof.FileName,
+                    UploadedAt = latestProof.UploadedAt
+                } : null
             };
 
             return Ok(response);

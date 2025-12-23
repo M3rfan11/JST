@@ -210,10 +210,15 @@ public class OnlineOrderManager : IOnlineOrderManager
             result.PreviousStatus = order.Status;
 
             // Validate status transition
-            if (!IsValidStatusTransition(order.Status, request.Status))
+            _logger.LogInformation("Validating status transition: '{CurrentStatus}' -> '{NewStatus}' for order {OrderId}", order.Status, request.Status, orderId);
+            var isValid = IsValidStatusTransition(order.Status, request.Status);
+            _logger.LogInformation("Status transition validation result: {IsValid}", isValid);
+            
+            if (!isValid)
             {
                 result.Success = false;
                 result.ErrorMessage = $"Invalid status transition from {order.Status} to {request.Status}";
+                _logger.LogWarning("Status transition rejected: {CurrentStatus} -> {NewStatus} for order {OrderId}", order.Status, request.Status, orderId);
                 return result;
             }
 
@@ -227,17 +232,27 @@ public class OnlineOrderManager : IOnlineOrderManager
             }
 
             // Handle specific status transitions
-            switch (request.Status)
+            var normalizedStatus = request.Status.ToUpper();
+            switch (normalizedStatus)
             {
-                case "Shipped":
+                case "SHIPPED":
                     order.DeliveryDate = request.DeliveryDate ?? DateTime.UtcNow.AddDays(3);
                     result.ActionsPerformed.Add("Delivery date set");
                     break;
-                case "Delivered":
+                case "DELIVERED":
                     order.PaymentStatus = "Paid";
                     result.ActionsPerformed.Add("Payment status updated to Paid");
                     break;
-                case "Cancelled":
+                case "ACCEPTED":
+                    // For InstaPay orders, when status changes to ACCEPTED, update payment status
+                    if (order.PaymentMethod?.ToUpper() == "INSTAPAY")
+                    {
+                        order.PaymentStatus = "Paid";
+                        order.ConfirmedAt = DateTime.UtcNow;
+                        result.ActionsPerformed.Add("Payment confirmed and status updated to Paid");
+                    }
+                    break;
+                case "CANCELLED":
                     await ReleaseInventoryAsync(orderId);
                     result.ActionsPerformed.Add("Inventory released");
                     break;
@@ -1111,6 +1126,7 @@ public class OnlineOrderManager : IOnlineOrderManager
         }
 
         return await _context.SalesOrders
+            .Include(so => so.PaymentProofs)
             .FirstOrDefaultAsync(so => so.Id == orderId && so.SalesItems.Any(si => si.WarehouseId == onlineWarehouse.Id));
     }
 
@@ -1162,16 +1178,47 @@ public class OnlineOrderManager : IOnlineOrderManager
 
     private bool IsValidStatusTransition(string currentStatus, string newStatus)
     {
+        // Normalize statuses to uppercase and trim whitespace
+        var normalizedCurrent = (currentStatus ?? "").Trim().ToUpper();
+        var normalizedNew = (newStatus ?? "").Trim().ToUpper();
+
+        _logger.LogDebug("Validating status transition: '{CurrentStatus}' (normalized: '{NormalizedCurrent}') -> '{NewStatus}' (normalized: '{NormalizedNew}')", 
+            currentStatus, normalizedCurrent, newStatus, normalizedNew);
+
         var validTransitions = new Dictionary<string, string[]>
         {
-            { "Pending", new[] { "Accepted", "Cancelled" } },
-            { "Accepted", new[] { "Shipped", "Cancelled" } },
-            { "Shipped", new[] { "Delivered", "Cancelled" } },
-            { "Delivered", new string[0] },
-            { "Cancelled", new string[0] }
+            { "PENDING", new[] { "ACCEPTED", "CANCELLED", "PENDING_PAYMENT" } },
+            { "PENDING_PAYMENT", new[] { "PROOF_SUBMITTED", "CANCELLED" } },
+            { "PROOF_SUBMITTED", new[] { "UNDER_REVIEW", "ACCEPTED", "REJECTED", "CANCELLED" } },
+            { "UNDER_REVIEW", new[] { "ACCEPTED", "REJECTED", "CANCELLED" } },
+            { "ACCEPTED", new[] { "SHIPPED", "CANCELLED" } },
+            { "REJECTED", new[] { "PROOF_SUBMITTED", "CANCELLED" } },
+            { "SHIPPED", new[] { "DELIVERED", "CANCELLED" } },
+            { "DELIVERED", new string[0] },
+            { "CANCELLED", new string[0] }
         };
 
-        return validTransitions.ContainsKey(currentStatus) && validTransitions[currentStatus].Contains(newStatus);
+        if (string.IsNullOrEmpty(normalizedCurrent) || string.IsNullOrEmpty(normalizedNew))
+        {
+            _logger.LogWarning("Empty status detected - Current: '{CurrentStatus}', New: '{NewStatus}'", currentStatus, newStatus);
+            return false;
+        }
+
+        if (!validTransitions.ContainsKey(normalizedCurrent))
+        {
+            // If status not found, allow transition (for backward compatibility with unknown statuses)
+            _logger.LogWarning("Unknown status '{CurrentStatus}' (normalized: '{NormalizedCurrent}') - allowing transition to '{NewStatus}' for backward compatibility", 
+                currentStatus, normalizedCurrent, newStatus);
+            return true;
+        }
+
+        var allowedTransitions = validTransitions[normalizedCurrent];
+        var isValid = allowedTransitions.Contains(normalizedNew);
+        
+        _logger.LogDebug("Status transition validation: '{CurrentStatus}' -> '{NewStatus}' = {IsValid}. Allowed transitions: {Allowed}", 
+            normalizedCurrent, normalizedNew, isValid, string.Join(", ", allowedTransitions));
+        
+        return isValid;
     }
 
     private async Task<InventoryReservationResult> ReserveInventoryForItemAsync(int orderId, int productId, decimal quantity, int warehouseId, int? variantId = null)

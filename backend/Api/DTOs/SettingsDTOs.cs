@@ -15,6 +15,14 @@ namespace Api.DTOs
         public string Key { get; set; } = string.Empty;
         public string? Value { get; set; }
     }
+
+    public class InstaPayQrResponse
+    {
+        public string? QrCodeUrl { get; set; }
+    }
 }
+
+
+
 
 

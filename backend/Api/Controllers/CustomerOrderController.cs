@@ -570,6 +570,13 @@ public class CustomerOrderController : ControllerBase
                 }
             }
 
+            // Determine initial status based on payment method
+            string initialStatus = "Pending";
+            if (request.PaymentMethod?.ToUpper() == "INSTAPAY")
+            {
+                initialStatus = "PENDING_PAYMENT";
+            }
+
             var order = new SalesOrder
             {
                 OrderNumber = orderNumber,
@@ -580,9 +587,10 @@ public class CustomerOrderController : ControllerBase
                 OrderDate = DateTime.UtcNow,
                 DeliveryDate = request.DeliveryDate,
                 TotalAmount = totalAmount,
-                Status = "Pending",
+                Status = initialStatus,
                 PaymentStatus = "Pending",
-                Notes = $"{request.Notes ?? ""} Payment Method: {request.PaymentMethod ?? "Cash on Delivery"}".Trim(),
+                PaymentMethod = request.PaymentMethod ?? "Cash on Delivery",
+                Notes = request.Notes,
                 CreatedByUserId = systemUser.Id, // Use system/admin user for guest orders
                 CreatedAt = DateTime.UtcNow
             };
@@ -924,6 +932,13 @@ public class CustomerOrderController : ControllerBase
             var orderNumber = GenerateOrderNumber();
             var totalAmount = orderAmount - discountAmount;
 
+            // Determine initial status based on payment method
+            string initialStatus = "Pending";
+            if (request.PaymentMethod?.ToUpper() == "INSTAPAY")
+            {
+                initialStatus = "PENDING_PAYMENT";
+            }
+
             var order = new SalesOrder
             {
                 OrderNumber = orderNumber,
@@ -934,8 +949,9 @@ public class CustomerOrderController : ControllerBase
                 OrderDate = DateTime.UtcNow,
                 DeliveryDate = request.DeliveryDate,
                 TotalAmount = totalAmount,
-                Status = "Pending",
+                Status = initialStatus,
                 PaymentStatus = "Pending",
+                PaymentMethod = request.PaymentMethod ?? "Cash on Delivery",
                 Notes = request.Notes,
                 CreatedByUserId = userId,
                 CreatedAt = DateTime.UtcNow

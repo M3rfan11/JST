@@ -302,6 +302,58 @@ export const api = {
   settings: {
     getShippingTicker: () => apiClient.get('/api/settings/shipping-ticker'),
     updateShippingTicker: (messages: string[]) => apiClient.put('/api/settings/shipping-ticker', { messages }),
+    getInstaPayQr: () => apiClient.get('/api/settings/instapay-qr'),
+    uploadInstaPayQr: (formData: FormData) => {
+      return fetch(`${API_URL}/api/settings/instapay-qr`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          ...(typeof window !== 'undefined' && localStorage.getItem('authToken')
+            ? { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+            : {}),
+        },
+      }).then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Upload failed' }))
+          const error = new Error(errorData.message || 'Upload failed')
+          ;(error as any).status = response.status
+          throw error
+        }
+        return response.json()
+      })
+    },
+    deleteInstaPayQr: () => apiClient.delete('/api/settings/instapay-qr'),
+  },
+
+  // InstaPay
+  instapay: {
+    uploadProof: (orderId: number, formData: FormData) => {
+      // For file uploads, we need to use fetch directly
+      return fetch(`${API_URL}/api/instapay/orders/${orderId}/proof`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          // Don't set Content-Type - let browser set it with boundary for FormData
+          ...(typeof window !== 'undefined' && localStorage.getItem('authToken')
+            ? { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+            : {}),
+        },
+      }).then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Upload failed' }))
+          const error = new Error(errorData.message || 'Upload failed')
+          ;(error as any).status = response.status
+          throw error
+        }
+        return response.json()
+      })
+    },
+    getOrder: (orderId: number) => apiClient.get(`/api/instapay/orders/${orderId}`),
+    getPendingProofs: () => apiClient.get('/api/instapay/admin/pending-proofs'),
+    acceptPayment: (orderId: number, data?: { adminNote?: string }) => 
+      apiClient.post(`/api/instapay/admin/orders/${orderId}/accept`, data || {}),
+    rejectPayment: (orderId: number, data: { rejectionReason: string; adminNote?: string }) => 
+      apiClient.post(`/api/instapay/admin/orders/${orderId}/reject`, data),
   },
 
   // Reports & Analytics
