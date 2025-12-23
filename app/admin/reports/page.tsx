@@ -8,9 +8,10 @@ import {
 } from "lucide-react"
 import { api } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
+import { Tooltip } from "@/components/ui/tooltip"
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   AreaChart, Area
 } from "recharts"
 
@@ -244,7 +245,9 @@ export default function ReportsPage() {
               <div className="bg-white rounded-lg p-6 border">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Total Sales</p>
+                    <Tooltip content="Sum of all order TotalAmount for the selected year">
+                      <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Total Sales</p>
+                    </Tooltip>
                     <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{formatCurrency(salesReport.totalSales)}</p>
                   </div>
                   <div className="p-3 rounded-lg" style={{ backgroundColor: '#3D0811' }}>
@@ -255,7 +258,9 @@ export default function ReportsPage() {
               <div className="bg-white rounded-lg p-6 border">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Total Orders</p>
+                    <Tooltip content="Count of all orders for the selected year">
+                      <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Total Orders</p>
+                    </Tooltip>
                     <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{salesReport.totalOrders}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-blue-500">
@@ -266,7 +271,9 @@ export default function ReportsPage() {
               <div className="bg-white rounded-lg p-6 border">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Avg Order Value</p>
+                    <Tooltip content="Average of all order TotalAmount for the selected year">
+                      <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Avg Order Value</p>
+                    </Tooltip>
                     <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{formatCurrency(salesReport.averageOrderValue)}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-green-500">
@@ -277,7 +284,9 @@ export default function ReportsPage() {
               <div className="bg-white rounded-lg p-6 border">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Top Products</p>
+                    <Tooltip content="Number of top products sorted by total revenue (sum of SalesItems.TotalPrice)">
+                      <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Top Products</p>
+                    </Tooltip>
                     <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{salesReport.topProducts?.length || 0}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-purple-500">
@@ -290,9 +299,11 @@ export default function ReportsPage() {
 
           {/* Revenue Chart */}
           <div className="bg-white rounded-lg p-6 border">
-            <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-              Revenue Over Time
-            </h3>
+            <Tooltip content="Revenue grouped by selected period (daily/weekly/monthly). Shows sum of SalesOrders.TotalAmount for completed/delivered orders">
+              <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                Revenue Over Time
+              </h3>
+            </Tooltip>
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={revenueData}>
                 <defs>
@@ -304,7 +315,7 @@ export default function ReportsPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <RechartsTooltip formatter={(value: number) => formatCurrency(value)} />
                 <Area type="monotone" dataKey="revenue" stroke="#3D0811" fillOpacity={1} fill="url(#colorRevenue)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -314,9 +325,11 @@ export default function ReportsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Category Sales Pie */}
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-                Sales by Category
-              </h3>
+              <Tooltip content="Revenue distribution by product categories. Calculated from SalesItems grouped by Product.Categories, showing TotalRevenue and percentage of total">
+                <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                  Sales by Category
+                </h3>
+              </Tooltip>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -334,16 +347,18 @@ export default function ReportsPage() {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <RechartsTooltip formatter={(value: number) => formatCurrency(value)} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
 
             {/* Top Products */}
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-                Top Selling Products
-              </h3>
+              <Tooltip content="Products sorted by total revenue (sum of SalesItems.TotalPrice) for the selected year">
+                <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                  Top Selling Products
+                </h3>
+              </Tooltip>
               <div className="space-y-3">
                 {salesReport?.topProducts?.slice(0, 5).map((product: any, index: number) => (
                   <div key={product.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -373,7 +388,9 @@ export default function ReportsPage() {
             <div className="bg-white rounded-lg p-6 border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Total Customers</p>
+                  <Tooltip content="Count of all registered customers plus unique guest customers (grouped by email/phone)">
+                    <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Total Customers</p>
+                  </Tooltip>
                   <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{customerData.totalCustomers}</p>
                 </div>
                 <Users className="h-8 w-8 text-blue-500" />
@@ -382,7 +399,9 @@ export default function ReportsPage() {
             <div className="bg-white rounded-lg p-6 border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>New This Month</p>
+                  <Tooltip content="Count of customers created this month (based on CreatedAt date)">
+                    <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>New This Month</p>
+                  </Tooltip>
                   <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{customerData.newCustomersThisMonth}</p>
                 </div>
                 <div className="flex items-center gap-1 text-green-500">
@@ -394,7 +413,9 @@ export default function ReportsPage() {
             <div className="bg-white rounded-lg p-6 border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Avg Lifetime Value</p>
+                  <Tooltip content="Average of sum of all order TotalAmount per customer (only customers with orders)">
+                    <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Avg Lifetime Value</p>
+                  </Tooltip>
                   <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{formatCurrency(customerData.averageCustomerLifetimeValue)}</p>
                 </div>
                 <DollarSign className="h-8 w-8 text-green-500" />
@@ -403,7 +424,9 @@ export default function ReportsPage() {
             <div className="bg-white rounded-lg p-6 border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Repeat Rate</p>
+                  <Tooltip content="Percentage of customers with more than 1 order out of all customers with orders">
+                    <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Repeat Rate</p>
+                  </Tooltip>
                   <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{customerData.repeatPurchaseRate.toFixed(1)}%</p>
                 </div>
                 <RefreshCw className="h-8 w-8 text-purple-500" />
@@ -413,15 +436,17 @@ export default function ReportsPage() {
 
           {/* Customer Acquisition Chart */}
           <div className="bg-white rounded-lg p-6 border">
-            <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-              Customer Acquisition Trend
-            </h3>
+            <Tooltip content="Number of new customers per month over the last 12 months. Based on customer CreatedAt date (registered customers) or first order date (guest customers)">
+              <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                Customer Acquisition Trend
+              </h3>
+            </Tooltip>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={customerData.acquisitionTrend}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
+                <RechartsTooltip />
                 <Bar dataKey="newCustomers" fill="#3D0811" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -430,9 +455,11 @@ export default function ReportsPage() {
           {/* Top Customers & Geographic */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-                Top Customers
-              </h3>
+              <Tooltip content="Customers sorted by total spent (sum of all their order TotalAmount)">
+                <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                  Top Customers
+                </h3>
+              </Tooltip>
               <div className="space-y-3">
                 {customerData.topCustomers?.slice(0, 5).map((customer: TopCustomerData, index: number) => (
                   <div key={`customer-${customer.customerId}-${customer.email || index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -452,9 +479,11 @@ export default function ReportsPage() {
             </div>
 
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-                Geographic Distribution
-              </h3>
+              <Tooltip content="Customer count by region/city, extracted from customer addresses. Shows percentage distribution of customers across locations">
+                <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                  Geographic Distribution
+                </h3>
+              </Tooltip>
               <div className="space-y-3">
                 {customerData.geographicDistribution?.slice(0, 5).map((geo: any, index: number) => (
                   <div key={geo.region} className="flex items-center justify-between">
@@ -484,23 +513,33 @@ export default function ReportsPage() {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Total Products</p>
+              <Tooltip content="Count of all active products">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Total Products</p>
+              </Tooltip>
               <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{inventoryData.totalProducts}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Total Variants</p>
+              <Tooltip content="Sum of variants count across all products">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Total Variants</p>
+              </Tooltip>
               <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{inventoryData.totalVariants}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Inventory Value</p>
+              <Tooltip content="Sum of (ProductInventory.Quantity × Product.Price) + (VariantInventory.Quantity × VariantPrice)">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Inventory Value</p>
+              </Tooltip>
               <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{formatCurrency(inventoryData.totalInventoryValue)}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Low Stock</p>
+              <Tooltip content="Count of inventory items where Quantity ≤ MinimumStockLevel and Quantity > 0">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Low Stock</p>
+              </Tooltip>
               <p className="text-2xl font-semibold text-orange-500">{inventoryData.lowStockCount}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Out of Stock</p>
+              <Tooltip content="Count of inventory items where Quantity = 0">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Out of Stock</p>
+              </Tooltip>
               <p className="text-2xl font-semibold text-red-500">{inventoryData.outOfStockCount}</p>
             </div>
           </div>
@@ -508,10 +547,12 @@ export default function ReportsPage() {
           {/* Stock Forecast & Dead Stock */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-                <AlertTriangle className="h-5 w-5 text-orange-500" />
-                Stock Forecast (Risk of Stockout)
-              </h3>
+              <Tooltip content="Predicts days until stockout based on average daily sales over last 3 months. Risk levels: Critical (≤7 days), High (≤14 days), Medium (≤30 days), Low (>30 days)">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                  <AlertTriangle className="h-5 w-5 text-orange-500" />
+                  Stock Forecast (Risk of Stockout)
+                </h3>
+              </Tooltip>
               <div className="space-y-3">
                 {inventoryData.stockForecast?.slice(0, 5).map((item: StockForecastData) => (
                   <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -535,10 +576,12 @@ export default function ReportsPage() {
             </div>
 
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-                <Package className="h-5 w-5 text-gray-500" />
-                Dead Stock (No Sales in 30+ Days)
-              </h3>
+              <Tooltip content="Products with current stock > 0 but no sales in the last 30+ days. Shows days since last sale and stock value (CurrentStock × Product.Price)">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                  <Package className="h-5 w-5 text-gray-500" />
+                  Dead Stock (No Sales in 30+ Days)
+                </h3>
+              </Tooltip>
               <div className="space-y-3">
                 {inventoryData.deadStock?.slice(0, 5).map((item: DeadStockData) => (
                   <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -557,15 +600,17 @@ export default function ReportsPage() {
 
           {/* Variant Performance */}
           <div className="bg-white rounded-lg p-6 border">
-            <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-              Variant Performance
-            </h3>
+            <Tooltip content="Product variants sorted by total quantity sold. Shows revenue (sum of SalesItems.TotalPrice) and current stock for each variant">
+              <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                Variant Performance
+              </h3>
+            </Tooltip>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={inventoryData.variantPerformance?.slice(0, 10) || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="variantAttributes" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <RechartsTooltip formatter={(value: number) => formatCurrency(value)} />
                 <Bar dataKey="revenue" fill="#3D0811" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -579,34 +624,44 @@ export default function ReportsPage() {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Gross Revenue</p>
+              <Tooltip content="Sum of all SalesOrders.TotalAmount for the selected year">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Gross Revenue</p>
+              </Tooltip>
               <p className="text-2xl font-semibold text-green-600">{formatCurrency(financialData.grossRevenue)}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Total Costs</p>
+              <Tooltip content="Sum of all PurchaseOrders.TotalAmount where Status = 'Received' for the selected year">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Total Costs</p>
+              </Tooltip>
               <p className="text-2xl font-semibold text-red-500">{formatCurrency(financialData.totalCosts)}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Gross Profit</p>
+              <Tooltip content="Gross Revenue - Total Costs">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Gross Profit</p>
+              </Tooltip>
               <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{formatCurrency(financialData.grossProfit)}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Gross Margin</p>
+              <Tooltip content="(Gross Profit / Gross Revenue) × 100">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Gross Margin</p>
+              </Tooltip>
               <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{financialData.grossMarginPercentage.toFixed(1)}%</p>
             </div>
           </div>
 
           {/* Monthly Trend */}
           <div className="bg-white rounded-lg p-6 border">
-            <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-              Monthly Financial Trend
-            </h3>
+            <Tooltip content="Monthly breakdown showing Revenue (sum of SalesOrders.TotalAmount), Costs (sum of PurchaseOrders.TotalAmount where Status='Received'), and Profit (Revenue - Costs) for the selected year">
+              <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                Monthly Financial Trend
+              </h3>
+            </Tooltip>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={financialData.monthlyTrend}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="monthName" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <RechartsTooltip formatter={(value: number) => formatCurrency(value)} />
                 <Legend />
                 <Line type="monotone" dataKey="revenue" name="Revenue" stroke="#2E7D32" strokeWidth={2} />
                 <Line type="monotone" dataKey="costs" name="Costs" stroke="#D32F2F" strokeWidth={2} />
@@ -618,9 +673,11 @@ export default function ReportsPage() {
           {/* Payment Status & Product Margins */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-                Payment Status
-              </h3>
+              <Tooltip content="Breakdown of orders by PaymentStatus: Paid (sum of TotalAmount where PaymentStatus='Paid'), Pending (where PaymentStatus='Pending'), and Refunded (where PaymentStatus='Refunded')">
+                <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                  Payment Status
+                </h3>
+              </Tooltip>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Paid</span>
@@ -640,9 +697,11 @@ export default function ReportsPage() {
             </div>
 
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-                Top Products by Profit
-              </h3>
+              <Tooltip content="Products sorted by total profit. Profit = sum of (UnitPrice - Cost) × Quantity for each SalesItem. Shows gross margin percentage and quantity sold">
+                <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                  Top Products by Profit
+                </h3>
+              </Tooltip>
               <div className="space-y-3">
                 {financialData.productMargins?.slice(0, 5).map((product: ProductMarginData, index: number) => (
                   <div key={product.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -665,29 +724,39 @@ export default function ReportsPage() {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Total Promo Codes</p>
+              <Tooltip content="Count of all promo codes in the system">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Total Promo Codes</p>
+              </Tooltip>
               <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{promoData.totalPromoCodes}</p>
               <p className="text-xs text-muted-foreground">{promoData.activePromoCodes} active</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Total Discounts Given</p>
+              <Tooltip content="Sum of all PromoCodeUsages.DiscountAmount">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Total Discounts Given</p>
+              </Tooltip>
               <p className="text-2xl font-semibold text-red-500">{formatCurrency(promoData.totalDiscountsGiven)}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Total Usage</p>
+              <Tooltip content="Count of all PromoCodeUsages">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Total Usage</p>
+              </Tooltip>
               <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{promoData.totalUsageCount}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Avg Discount/Use</p>
+              <Tooltip content="Total Discounts Given / Total Usage">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Avg Discount/Use</p>
+              </Tooltip>
               <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{formatCurrency(promoData.averageDiscountPerUse)}</p>
             </div>
           </div>
 
           {/* Usage Trend */}
           <div className="bg-white rounded-lg p-6 border">
-            <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-              Promo Code Usage (Last 30 Days)
-            </h3>
+            <Tooltip content="Daily count of promo code usages over the last 30 days. Shows number of times promo codes were applied each day">
+              <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                Promo Code Usage (Last 30 Days)
+              </h3>
+            </Tooltip>
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={promoData.usageTrend}>
                 <defs>
@@ -699,7 +768,7 @@ export default function ReportsPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
+                <RechartsTooltip />
                 <Area type="monotone" dataKey="usageCount" stroke="#7B1FA2" fillOpacity={1} fill="url(#colorUsage)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -707,9 +776,11 @@ export default function ReportsPage() {
 
           {/* Top Promo Codes */}
           <div className="bg-white rounded-lg p-6 border">
-            <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-              Promo Code Performance
-            </h3>
+            <Tooltip content="Promo codes sorted by usage count. Shows discount type/value, usage count vs limit, total discounts given, revenue generated, and ROI = ((RevenueGenerated - DiscountGiven) / DiscountGiven) × 100">
+              <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                Promo Code Performance
+              </h3>
+            </Tooltip>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -752,20 +823,26 @@ export default function ReportsPage() {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Total Orders</p>
+              <Tooltip content="Count of all SalesOrders for the selected year">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Total Orders</p>
+              </Tooltip>
               <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{orderStatusData.totalOrders}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border">
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-blue-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Avg Fulfillment Time</p>
+                  <Tooltip content="Average time in hours from order creation (CreatedAt) to delivery (DeliveryDate) for delivered orders">
+                    <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Avg Fulfillment Time</p>
+                  </Tooltip>
                   <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{orderStatusData.averageFulfillmentTimeHours.toFixed(1)} hrs</p>
                 </div>
               </div>
             </div>
             <div className="bg-white rounded-lg p-6 border">
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>Status Breakdown</p>
+              <Tooltip content="Grouped count of orders by Status">
+                <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Status Breakdown</p>
+              </Tooltip>
               <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{orderStatusData.statusDistribution?.length || 0} statuses</p>
             </div>
           </div>
@@ -773,9 +850,11 @@ export default function ReportsPage() {
           {/* Status Distribution Pie & Bar */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-                Order Status Distribution
-              </h3>
+              <Tooltip content="Pie chart showing distribution of orders by Status. Calculated as count and percentage of orders for each status (Pending, Confirmed, Shipped, Delivered, Cancelled)">
+                <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                  Order Status Distribution
+                </h3>
+              </Tooltip>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -799,15 +878,17 @@ export default function ReportsPage() {
                       } />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <RechartsTooltip />
                 </PieChart>
               </ResponsiveContainer>
             </div>
 
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-                Status by Value
-              </h3>
+              <Tooltip content="Total order value (sum of TotalAmount) grouped by Status. Shows both the monetary value and order count for each status">
+                <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                  Status by Value
+                </h3>
+              </Tooltip>
               <div className="space-y-4">
                 {orderStatusData.statusDistribution?.map((status: OrderStatusData, index: number) => (
                   <div key={status.status} className="flex items-center justify-between">
@@ -833,15 +914,17 @@ export default function ReportsPage() {
 
           {/* Status Trend */}
           <div className="bg-white rounded-lg p-6 border">
-            <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
-              Order Status Trend (Last 30 Days)
-            </h3>
+            <Tooltip content="Daily count of orders by status over the last 30 days. Stacked area chart showing how many orders are in each status (Pending, Confirmed, Shipped, Delivered, Cancelled) per day">
+              <h3 className="text-lg font-semibold mb-4 cursor-help" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
+                Order Status Trend (Last 30 Days)
+              </h3>
+            </Tooltip>
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={orderStatusData.statusTrend}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
+                <RechartsTooltip />
                 <Legend />
                 <Area type="monotone" dataKey="delivered" name="Delivered" stackId="1" stroke="#2E7D32" fill="#2E7D32" />
                 <Area type="monotone" dataKey="shipped" name="Shipped" stackId="1" stroke="#1976D2" fill="#1976D2" />
@@ -856,3 +939,4 @@ export default function ReportsPage() {
     </div>
   )
 }
+
