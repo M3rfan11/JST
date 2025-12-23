@@ -1097,22 +1097,8 @@ public class ReportsController : ControllerBase
                 PaidOrders = sales.Count(s => s.PaymentStatus == "Paid"),
                 PendingAmount = sales.Where(s => s.PaymentStatus == "Pending").Sum(s => s.TotalAmount),
                 PendingOrders = sales.Count(s => s.PaymentStatus == "Pending"),
-                PartiallyPaidAmount = sales.Where(s => s.PaymentStatus == "PartiallyPaid").Sum(s => s.TotalAmount),
-                PartiallyPaidOrders = sales.Count(s => s.PaymentStatus == "PartiallyPaid"),
                 RefundedAmount = sales.Where(s => s.PaymentStatus == "Refunded").Sum(s => s.TotalAmount),
                 RefundedOrders = sales.Count(s => s.PaymentStatus == "Refunded")
-            };
-
-            // Down payment summary
-            var ordersWithDownPayment = sales.Where(s => s.DownPayment.HasValue && s.DownPayment.Value > 0).ToList();
-            var downPaymentSummary = new DownPaymentSummary
-            {
-                TotalDownPayments = ordersWithDownPayment.Sum(s => s.DownPayment ?? 0),
-                OrdersWithDownPayments = ordersWithDownPayment.Count,
-                AverageDownPaymentPercentage = ordersWithDownPayment.Any() 
-                    ? ordersWithDownPayment.Average(s => (s.DownPayment ?? 0) / s.TotalAmount * 100) 
-                    : 0,
-                OutstandingBalance = ordersWithDownPayment.Sum(s => s.TotalAmount - (s.DownPayment ?? 0))
             };
 
             return Ok(new FinancialReportResponse
@@ -1128,7 +1114,6 @@ public class ReportsController : ControllerBase
                 ProductMargins = productMargins,
                 MonthlyTrend = monthlyTrend,
                 PaymentStatus = paymentStatus,
-                DownPayments = downPaymentSummary,
                 GeneratedAt = DateTime.UtcNow
             });
         }

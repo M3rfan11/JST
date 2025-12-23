@@ -298,7 +298,6 @@ public class FinancialReportResponse
     public List<ProductMarginData> ProductMargins { get; set; } = new List<ProductMarginData>();
     public List<MonthlyFinancialData> MonthlyTrend { get; set; } = new List<MonthlyFinancialData>();
     public PaymentStatusSummary PaymentStatus { get; set; } = new PaymentStatusSummary();
-    public DownPaymentSummary DownPayments { get; set; } = new DownPaymentSummary();
     public DateTime GeneratedAt { get; set; }
 }
 
@@ -331,8 +330,6 @@ public class PaymentStatusSummary
     public int PaidOrders { get; set; }
     public decimal PendingAmount { get; set; }
     public int PendingOrders { get; set; }
-    public decimal PartiallyPaidAmount { get; set; }
-    public int PartiallyPaidOrders { get; set; }
     public decimal RefundedAmount { get; set; }
     public int RefundedOrders { get; set; }
 }

@@ -636,19 +636,6 @@ export default function ReportsPage() {
                     <span className="text-xs text-muted-foreground">({financialData.paymentStatus.pendingOrders} orders)</span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Partially Paid</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-orange-600">{formatCurrency(financialData.paymentStatus.partiallyPaidAmount)}</span>
-                    <span className="text-xs text-muted-foreground">({financialData.paymentStatus.partiallyPaidOrders} orders)</span>
-                  </div>
-                </div>
-                <hr />
-                <div className="pt-2">
-                  <h4 className="font-medium mb-2">Down Payments</h4>
-                  <p className="text-sm text-muted-foreground">Total: {formatCurrency(financialData.downPayments.totalDownPayments)}</p>
-                  <p className="text-sm text-muted-foreground">Outstanding: {formatCurrency(financialData.downPayments.outstandingBalance)}</p>
-                </div>
               </div>
             </div>
 
