@@ -1290,10 +1290,37 @@ public class ReportsController : ControllerBase
                 .ToList();
 
             // Average fulfillment time (from created to delivered)
-            var deliveredOrders = orders.Where(o => o.Status == "Delivered" && o.DeliveryDate.HasValue);
-            var avgFulfillmentTime = deliveredOrders.Any()
-                ? deliveredOrders.Average(o => (o.DeliveryDate!.Value - o.CreatedAt).TotalHours)
-                : 0;
+            // Use actual delivery time: DeliveryDate if set and not in the future, otherwise UpdatedAt when status is Delivered
+            var deliveredOrders = orders.Where(o => o.Status == "Delivered").ToList();
+            var avgFulfillmentTime = 0.0;
+            
+            if (deliveredOrders.Any())
+            {
+                var fulfillmentTimes = deliveredOrders.Select(o =>
+                {
+                    DateTime actualDeliveryTime;
+                    
+                    // Use DeliveryDate if it's set and not in the future (actual delivery)
+                    // Otherwise use UpdatedAt as the time when status was changed to Delivered
+                    if (o.DeliveryDate.HasValue && o.DeliveryDate.Value <= DateTime.UtcNow)
+                    {
+                        actualDeliveryTime = o.DeliveryDate.Value;
+                    }
+                    else if (o.UpdatedAt.HasValue)
+                    {
+                        actualDeliveryTime = o.UpdatedAt.Value;
+                    }
+                    else
+                    {
+                        // Fallback to CreatedAt if neither is available (shouldn't happen)
+                        actualDeliveryTime = o.CreatedAt;
+                    }
+                    
+                    return (actualDeliveryTime - o.CreatedAt).TotalHours;
+                }).ToList();
+                
+                avgFulfillmentTime = fulfillmentTimes.Any() ? fulfillmentTimes.Average() : 0;
+            }
 
             return Ok(new OrderStatusDistributionResponse
             {

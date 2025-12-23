@@ -230,12 +230,16 @@ public class OnlineOrderManager : IOnlineOrderManager
             switch (request.Status)
             {
                 case "Shipped":
+                    // Set estimated delivery date (3 days from now if not provided)
                     order.DeliveryDate = request.DeliveryDate ?? DateTime.UtcNow.AddDays(3);
                     result.ActionsPerformed.Add("Delivery date set");
                     break;
                 case "Delivered":
+                    // Set actual delivery date to current time when order is marked as delivered
+                    order.DeliveryDate = DateTime.UtcNow;
                     order.PaymentStatus = "Paid";
                     result.ActionsPerformed.Add("Payment status updated to Paid");
+                    result.ActionsPerformed.Add("Actual delivery date recorded");
                     break;
                 case "Cancelled":
                     await ReleaseInventoryAsync(orderId);

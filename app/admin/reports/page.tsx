@@ -104,6 +104,23 @@ interface StockForecastData {
 
 const COLORS = ['#3D0811', '#7C3238', '#B4565E', '#D98E94', '#F5C4C9', '#2E7D32', '#1976D2', '#7B1FA2']
 
+// Helper function to format fulfillment time in a readable way
+function formatFulfillmentTime(hours: number): string {
+  if (hours < 1) {
+    return `${Math.round(hours * 60)} min`
+  } else if (hours < 24) {
+    return `${hours.toFixed(1)} hrs`
+  } else {
+    const days = Math.floor(hours / 24)
+    const remainingHours = hours % 24
+    if (remainingHours < 0.5) {
+      return `${days} ${days === 1 ? 'day' : 'days'}`
+    } else {
+      return `${days} ${days === 1 ? 'day' : 'days'} ${remainingHours.toFixed(1)} hrs`
+    }
+  }
+}
+
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'sales' | 'customers' | 'inventory' | 'financial' | 'promo' | 'orders'>('sales')
   const [loading, setLoading] = useState(true)
@@ -832,10 +849,12 @@ export default function ReportsPage() {
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-blue-500" />
                 <div>
-                  <Tooltip content="Average time in hours from order creation (CreatedAt) to delivery (DeliveryDate) for delivered orders">
+                  <Tooltip content="Average time from order creation (CreatedAt) to actual delivery for delivered orders">
                     <p className="text-sm text-muted-foreground cursor-help" style={{ fontFamily: '"Dream Avenue"' }}>Avg Fulfillment Time</p>
                   </Tooltip>
-                  <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>{orderStatusData.averageFulfillmentTimeHours.toFixed(1)} hrs</p>
+                  <p className="text-2xl font-semibold" style={{ color: '#3D0811' }}>
+                    {formatFulfillmentTime(orderStatusData.averageFulfillmentTimeHours)}
+                  </p>
                 </div>
               </div>
             </div>
