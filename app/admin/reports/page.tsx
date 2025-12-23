@@ -435,7 +435,7 @@ export default function ReportsPage() {
               </h3>
               <div className="space-y-3">
                 {customerData.topCustomers?.slice(0, 5).map((customer: TopCustomerData, index: number) => (
-                  <div key={customer.customerId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={`customer-${customer.customerId}-${customer.email || index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-3">
                       <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm" style={{ backgroundColor: COLORS[index] }}>
                         {customer.customerName.charAt(0)}
