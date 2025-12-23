@@ -46,6 +46,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined)
 interface BackendCartItem {
   id: number
   productId: number
+  variantId?: number | null // Variant ID if item has a variant
   productName: string
   productSKU?: string
   productDescription?: string
@@ -166,6 +167,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return {
       id: backendItem.productId.toString(),
       productId: backendItem.productId,
+      variantId: backendItem.variantId ?? undefined,
       name: backendItem.productName,
       price: Number(backendItem.unitPrice),
       image: optimizeImageForStorage(image),
@@ -339,6 +341,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       try {
         const response = await api.cart.addItem({
           productId: item.productId,
+          variantId: item.variantId,
           quantity: 1,
         }) as any
         

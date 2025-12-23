@@ -8,6 +8,8 @@ namespace Api.DTOs
         [Required]
         public int ProductId { get; set; }
 
+        public int? VariantId { get; set; } // Optional: for variant-specific cart items
+
         [Required]
         [Range(0.01, double.MaxValue, ErrorMessage = "Quantity must be greater than 0")]
         public decimal Quantity { get; set; }
@@ -24,6 +26,7 @@ namespace Api.DTOs
     {
         public int Id { get; set; }
         public int ProductId { get; set; }
+        public int? VariantId { get; set; } // Variant ID if item has a variant
         public string ProductName { get; set; } = string.Empty;
         public string? ProductSKU { get; set; }
         public string? ProductDescription { get; set; }
