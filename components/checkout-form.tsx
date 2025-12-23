@@ -52,6 +52,13 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
     paymentMethod: "Cash on Delivery", // Default payment method
   });
 
+  // Update email when user changes (for authenticated users)
+  useEffect(() => {
+    if (isAuthenticated && user?.email) {
+      setFormData(prev => ({ ...prev, email: user.email }));
+    }
+  }, [isAuthenticated, user?.email]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -110,9 +117,12 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
       }
 
       // Prepare order request
+      // Use user's email if authenticated, otherwise use form email
+      const customerEmail = isAuthenticated && user?.email ? user.email : formData.email;
+      
       const orderRequest = {
         customerName: customerName,
-        customerEmail: formData.email,
+        customerEmail: customerEmail,
         customerPhone: formData.phone,
         customerAddress: fullAddress,
         items: orderItems,
@@ -165,7 +175,7 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
       // Always redirect to track page with order number
       router.push(
         `/track?orderId=${orderNumber}&email=${encodeURIComponent(
-          formData.email
+          customerEmail
         )}`
       );
     } catch (error: any) {
@@ -184,35 +194,37 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
       {/* Contact Information */}
-      <div>
-        <h2
-          className="font-serif text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
-          style={{ fontFamily: '"Dream Avenue"' }}
-        >
-          Contact Information
-        </h2>
-        <div className="space-y-3 sm:space-y-4">
-          <div>
-            <Label
-              htmlFor="email"
-              className="text-sm"
-              style={{ fontFamily: '"Dream Avenue"' }}
-            >
-              Email
-            </Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              required
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
-              className="mt-1.5"
-            />
+      {!isAuthenticated && (
+        <div>
+          <h2
+            className="font-serif text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+            style={{ fontFamily: '"Dream Avenue"' }}
+          >
+            Contact Information
+          </h2>
+          <div className="space-y-3 sm:space-y-4">
+            <div>
+              <Label
+                htmlFor="email"
+                className="text-sm"
+                style={{ fontFamily: '"Dream Avenue"' }}
+              >
+                Email
+              </Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="you@example.com"
+                className="mt-1.5"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Shipping Address */}
       <div>
