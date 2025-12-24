@@ -617,10 +617,10 @@ public class CustomerOrderController : ControllerBase
             }
 
             // Determine initial status based on payment method
-            string initialStatus = "Pending";
+            string initialStatus = "pending";
             if (request.PaymentMethod?.ToUpper() == "INSTAPAY")
             {
-                initialStatus = "PENDING_PAYMENT";
+                initialStatus = "pending_payment";
             }
 
             var order = new SalesOrder
@@ -634,7 +634,7 @@ public class CustomerOrderController : ControllerBase
                 DeliveryDate = request.DeliveryDate,
                 TotalAmount = totalAmount,
                 Status = initialStatus,
-                PaymentStatus = "Pending",
+                PaymentStatus = "pending",
                 PaymentMethod = request.PaymentMethod ?? "Cash on Delivery",
                 Notes = request.Notes,
                 CreatedByUserId = systemUser.Id, // Use system/admin user for guest orders
@@ -704,7 +704,7 @@ public class CustomerOrderController : ControllerBase
             var tracking = new OrderTracking
             {
                 OrderId = order.Id,
-                Status = "Pending",
+                Status = "pending",
                 Notes = "Order created",
                 Timestamp = DateTime.UtcNow,
                 UpdatedByUserId = systemUser.Id // Use system user for guest orders
@@ -991,10 +991,10 @@ public class CustomerOrderController : ControllerBase
             var totalAmount = orderAmount - discountAmount;
 
             // Determine initial status based on payment method
-            string initialStatus = "Pending";
+            string initialStatus = "pending";
             if (request.PaymentMethod?.ToUpper() == "INSTAPAY")
             {
-                initialStatus = "PENDING_PAYMENT";
+                initialStatus = "pending_payment";
             }
 
             var order = new SalesOrder
@@ -1008,7 +1008,7 @@ public class CustomerOrderController : ControllerBase
                 DeliveryDate = request.DeliveryDate,
                 TotalAmount = totalAmount,
                 Status = initialStatus,
-                PaymentStatus = "Pending",
+                PaymentStatus = "pending",
                 PaymentMethod = request.PaymentMethod ?? "Cash on Delivery",
                 Notes = request.Notes,
                 CreatedByUserId = userId,
@@ -1078,7 +1078,7 @@ public class CustomerOrderController : ControllerBase
             var tracking = new OrderTracking
             {
                 OrderId = order.Id,
-                Status = "Pending",
+                Status = "pending",
                 Notes = "Order created",
                 Timestamp = DateTime.UtcNow,
                 UpdatedByUserId = userId

@@ -133,7 +133,8 @@ public class InstaPayController : ControllerBase
             }
 
             // Check if order is in valid status for proof upload
-            if (order.Status != "PENDING_PAYMENT" && order.Status != "REJECTED")
+            var normalizedStatus = (order.Status ?? "").Trim().ToLower();
+            if (normalizedStatus != "pending_payment" && normalizedStatus != "rejected")
             {
                 return BadRequest($"Cannot upload proof for order with status: {order.Status}");
             }
@@ -169,7 +170,7 @@ public class InstaPayController : ControllerBase
             _context.PaymentProofs.Add(proof);
 
             // Update order status
-            order.Status = "PROOF_SUBMITTED";
+            order.Status = "proof_submitted";
             order.UpdatedAt = DateTime.UtcNow;
             order.RejectionReason = null; // Clear rejection reason if re-uploading
 
@@ -177,7 +178,7 @@ public class InstaPayController : ControllerBase
             var tracking = new OrderTracking
             {
                 OrderId = orderId,
-                Status = "PROOF_SUBMITTED",
+                Status = "proof_submitted",
                 Notes = "Payment proof uploaded",
                 Timestamp = DateTime.UtcNow,
                 UpdatedByUserId = GetCurrentUserId() > 0 ? GetCurrentUserId() : order.CreatedByUserId
@@ -215,7 +216,7 @@ public class InstaPayController : ControllerBase
                 .ThenInclude(si => si.Product)
                 .Where(so => so.PaymentMethod != null && 
                              so.PaymentMethod.ToUpper() == "INSTAPAY" &&
-                             (so.Status == "PROOF_SUBMITTED" || so.Status == "UNDER_REVIEW"))
+                             (so.Status.ToLower() == "proof_submitted" || so.Status.ToLower() == "under_review"))
                 .OrderByDescending(so => so.CreatedAt)
                 .Select(so => new
                 {
@@ -273,7 +274,8 @@ public class InstaPayController : ControllerBase
                 return BadRequest("This order is not an InstaPay order");
             }
 
-            if (order.Status != "PROOF_SUBMITTED" && order.Status != "UNDER_REVIEW")
+            var normalizedStatus = (order.Status ?? "").Trim().ToLower();
+            if (normalizedStatus != "proof_submitted" && normalizedStatus != "under_review")
             {
                 return BadRequest($"Cannot accept payment for order with status: {order.Status}");
             }
@@ -281,7 +283,7 @@ public class InstaPayController : ControllerBase
             var userId = GetCurrentUserId();
 
             // Update order
-            order.Status = "ACCEPTED";
+            order.Status = "accepted";
             order.PaymentStatus = "Paid";
             order.ConfirmedAt = DateTime.UtcNow;
             order.ConfirmedByUserId = userId;
@@ -342,7 +344,8 @@ public class InstaPayController : ControllerBase
                 return BadRequest("This order is not an InstaPay order");
             }
 
-            if (order.Status != "PROOF_SUBMITTED" && order.Status != "UNDER_REVIEW")
+            var normalizedStatus = (order.Status ?? "").Trim().ToLower();
+            if (normalizedStatus != "proof_submitted" && normalizedStatus != "under_review")
             {
                 return BadRequest($"Cannot reject payment for order with status: {order.Status}");
             }
@@ -350,7 +353,7 @@ public class InstaPayController : ControllerBase
             var userId = GetCurrentUserId();
 
             // Update order
-            order.Status = "REJECTED";
+            order.Status = "rejected";
             order.RejectionReason = request.RejectionReason;
             order.AdminNote = request.AdminNote;
             order.UpdatedAt = DateTime.UtcNow;
@@ -359,7 +362,7 @@ public class InstaPayController : ControllerBase
             var tracking = new OrderTracking
             {
                 OrderId = orderId,
-                Status = "REJECTED",
+                Status = "rejected",
                 Notes = $"Payment rejected: {request.RejectionReason}",
                 Timestamp = DateTime.UtcNow,
                 UpdatedByUserId = userId

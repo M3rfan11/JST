@@ -169,26 +169,26 @@ export default function OrdersPage() {
     const status = currentStatus.toLowerCase()
     switch (status) {
       case "pending":
-        return ["Pending", "Accepted", "Cancelled", "PENDING_PAYMENT"]
+        return ["pending", "accepted", "cancelled", "pending_payment"]
       case "pending_payment":
-        return ["PENDING_PAYMENT", "PROOF_SUBMITTED", "Cancelled"]
+        return ["pending_payment", "proof_submitted", "cancelled"]
       case "proof_submitted":
-        return ["PROOF_SUBMITTED", "UNDER_REVIEW", "ACCEPTED", "REJECTED", "Cancelled"]
+        return ["proof_submitted", "under_review", "accepted", "rejected", "cancelled"]
       case "under_review":
-        return ["UNDER_REVIEW", "ACCEPTED", "REJECTED", "Cancelled"]
+        return ["under_review", "accepted", "rejected", "cancelled"]
       case "accepted":
-        return ["Accepted", "Shipped", "Cancelled"]
+        return ["accepted", "shipped", "cancelled"]
       case "rejected":
-        return ["REJECTED", "PROOF_SUBMITTED", "Cancelled"]
+        return ["rejected", "proof_submitted", "cancelled"]
       case "shipped":
-        return ["Shipped", "Delivered", "Cancelled"]
+        return ["shipped", "delivered", "cancelled"]
       case "delivered":
-        return ["Delivered"] // No transitions allowed
+        return ["delivered"] // No transitions allowed
       case "cancelled":
-        return ["Cancelled"] // No transitions allowed
+        return ["cancelled"] // No transitions allowed
       default:
         // For unknown statuses, allow common transitions
-        return ["Pending", "Accepted", "Shipped", "Delivered", "Cancelled", "ACCEPTED", "REJECTED"]
+        return ["pending", "accepted", "shipped", "delivered", "cancelled", "pending_payment", "proof_submitted", "under_review", "rejected"]
     }
   }
 
@@ -208,13 +208,7 @@ export default function OrdersPage() {
     })
   }
 
-  const statusOptions = [
-    "Pending",
-    "Accepted",
-    "Shipped",
-    "Delivered",
-    "Cancelled"
-  ]
+  // Status options removed - using getValidStatusTransitions instead
 
   if (loading) {
     return (
@@ -277,10 +271,10 @@ export default function OrdersPage() {
                         #{order.orderNumber}
                       </h3>
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(order.status)}`}
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}
                         style={{ fontFamily: '"Dream Avenue"' }}
                       >
-                        {order.status}
+                        {order.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>
@@ -299,7 +293,7 @@ export default function OrdersPage() {
                     >
                       {getValidStatusTransitions(order.status).map((status) => (
                         <option key={status} value={status}>
-                          {status.replace(/_/g, ' ')}
+                          {status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                         </option>
                       ))}
                     </select>

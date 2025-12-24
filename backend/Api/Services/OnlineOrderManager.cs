@@ -209,9 +209,14 @@ public class OnlineOrderManager : IOnlineOrderManager
 
             result.PreviousStatus = order.Status;
 
+            // Normalize current status from database (may be mixed case from old data)
+            var normalizedCurrentStatus = (order.Status ?? "").Trim().ToLower();
+            var normalizedNewStatus = (request.Status ?? "").Trim().ToLower();
+
             // Validate status transition
-            _logger.LogInformation("Validating status transition: '{CurrentStatus}' -> '{NewStatus}' for order {OrderId}", order.Status, request.Status, orderId);
-            var isValid = IsValidStatusTransition(order.Status, request.Status);
+            _logger.LogInformation("Validating status transition: '{CurrentStatus}' (normalized: '{NormalizedCurrent}') -> '{NewStatus}' (normalized: '{NormalizedNew}') for order {OrderId}", 
+                order.Status, normalizedCurrentStatus, request.Status, normalizedNewStatus, orderId);
+            var isValid = IsValidStatusTransition(normalizedCurrentStatus, normalizedNewStatus);
             _logger.LogInformation("Status transition validation result: {IsValid}", isValid);
             
             if (!isValid)
@@ -222,8 +227,11 @@ public class OnlineOrderManager : IOnlineOrderManager
                 return result;
             }
 
-            // Update order status
-            order.Status = request.Status;
+            // Normalize status to lowercase
+            var normalizedStatus = (request.Status ?? "").Trim().ToLower();
+            
+            // Update order status (store in lowercase)
+            order.Status = normalizedStatus;
             order.UpdatedAt = DateTime.UtcNow;
 
             if (!string.IsNullOrEmpty(request.Notes))
@@ -232,23 +240,22 @@ public class OnlineOrderManager : IOnlineOrderManager
             }
 
             // Handle specific status transitions
-            var normalizedStatus = request.Status.ToUpper();
             switch (normalizedStatus)
             {
-                case "SHIPPED":
+                case "shipped":
                     // Set estimated delivery date (3 days from now if not provided)
                     order.DeliveryDate = request.DeliveryDate ?? DateTime.UtcNow.AddDays(3);
                     result.ActionsPerformed.Add("Delivery date set");
                     break;
-                case "DELIVERED":
+                case "delivered":
                     // Set actual delivery date to current time when order is marked as delivered
                     order.DeliveryDate = DateTime.UtcNow;
                     order.PaymentStatus = "Paid";
                     result.ActionsPerformed.Add("Payment status updated to Paid");
                     result.ActionsPerformed.Add("Actual delivery date recorded");
                     break;
-                case "ACCEPTED":
-                    // For InstaPay orders, when status changes to ACCEPTED, update payment status
+                case "accepted":
+                    // For InstaPay orders, when status changes to accepted, update payment status
                     if (order.PaymentMethod?.ToUpper() == "INSTAPAY")
                     {
                         order.PaymentStatus = "Paid";
@@ -256,7 +263,7 @@ public class OnlineOrderManager : IOnlineOrderManager
                         result.ActionsPerformed.Add("Payment confirmed and status updated to Paid");
                     }
                     break;
-                case "CANCELLED":
+                case "cancelled":
                     await ReleaseInventoryAsync(orderId);
                     result.ActionsPerformed.Add("Inventory released");
                     break;
@@ -265,7 +272,7 @@ public class OnlineOrderManager : IOnlineOrderManager
             await _context.SaveChangesAsync();
 
             result.Success = true;
-            result.NewStatus = request.Status;
+            result.NewStatus = normalizedStatus;
 
             // Send notification
             await SendStatusUpdateNotificationAsync(orderId, request.Status);
@@ -1191,15 +1198,15 @@ public class OnlineOrderManager : IOnlineOrderManager
 
         var validTransitions = new Dictionary<string, string[]>
         {
-            { "PENDING", new[] { "ACCEPTED", "CANCELLED", "PENDING_PAYMENT" } },
-            { "PENDING_PAYMENT", new[] { "PROOF_SUBMITTED", "CANCELLED" } },
-            { "PROOF_SUBMITTED", new[] { "UNDER_REVIEW", "ACCEPTED", "REJECTED", "CANCELLED" } },
-            { "UNDER_REVIEW", new[] { "ACCEPTED", "REJECTED", "CANCELLED" } },
-            { "ACCEPTED", new[] { "SHIPPED", "CANCELLED" } },
-            { "REJECTED", new[] { "PROOF_SUBMITTED", "CANCELLED" } },
-            { "SHIPPED", new[] { "DELIVERED", "CANCELLED" } },
-            { "DELIVERED", new string[0] },
-            { "CANCELLED", new string[0] }
+            { "pending", new[] { "accepted", "cancelled", "pending_payment" } },
+            { "pending_payment", new[] { "proof_submitted", "cancelled" } },
+            { "proof_submitted", new[] { "under_review", "accepted", "rejected", "cancelled" } },
+            { "under_review", new[] { "accepted", "rejected", "cancelled" } },
+            { "accepted", new[] { "shipped", "cancelled" } },
+            { "rejected", new[] { "proof_submitted", "cancelled" } },
+            { "shipped", new[] { "delivered", "cancelled" } },
+            { "delivered", new string[0] },
+            { "cancelled", new string[0] }
         };
 
         if (string.IsNullOrEmpty(normalizedCurrent) || string.IsNullOrEmpty(normalizedNew))
