@@ -15,7 +15,7 @@ namespace Api.DTOs
         public List<int>? UserIds { get; set; } // Users who can use this promo code
         public List<string>? EmailAddresses { get; set; } // Email addresses to send promo code to (can be non-registered)
         public List<int>? ProductIds { get; set; } // Products this promo code applies to (empty = all products)
-        public bool SendEmailNotification { get; set; } = true; // Whether to send email to users
+        public bool? SendEmailNotification { get; set; } = true; // Whether to send email to users
     }
 
     public class UpdatePromoCodeRequest

@@ -4,7 +4,6 @@ using MailKit.Security;
 using MimeKit;
 using SendGrid;
 using SendGrid.Helpers.Mail;
-using System.Net.Mail;
 
 namespace Api.Services
 {
@@ -36,29 +35,104 @@ namespace Api.Services
                 var senderEmail = _configuration["Email:SenderEmail"] ?? "me5280908@gmail.com";
                 var senderName = _configuration["Email:SenderName"] ?? "JST";
                 var baseUrl = _configuration["Email:BaseUrl"] ?? "http://localhost:3000";
-                
-                var discountText = discountType == "Percentage" 
-                    ? $"{discountValue}% off" 
+
+                var discountText = discountType == "Percentage"
+                    ? $"{discountValue}% off"
                     : $"${discountValue} off";
-                
-                var endDateText = endDate.HasValue 
-                    ? $"Valid until {endDate.Value:MMMM dd, yyyy}" 
+
+                var endDateText = endDate.HasValue
+                    ? $"Valid until {endDate.Value:MMMM dd, yyyy}"
                     : "No expiration date";
-                
+
                 var emailBodyHtml = $@"
 <!DOCTYPE html>
 <html>
 <head>
     <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background-color: #ed6b3e; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }}
-        .content {{ background-color: #f9f9f9; padding: 30px; border-radius: 0 0 5px 5px; }}
-        .promo-code {{ background-color: #fff; border: 2px dashed #ed6b3e; padding: 20px; text-align: center; margin: 20px 0; border-radius: 5px; }}
-        .promo-code-text {{ font-size: 24px; font-weight: bold; color: #ed6b3e; letter-spacing: 2px; }}
-        .discount {{ font-size: 18px; color: #28a745; font-weight: bold; margin: 10px 0; }}
-        .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
-        .button {{ display: inline-block; background-color: #ed6b3e; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+        @import url('https://fonts.googleapis.com/css2?family=Dream+Avenue&display=swap');
+        
+        body {{ 
+            font-family: 'Dream Avenue', 'Arial', sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{ 
+            max-width: 600px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }}
+        .header {{ 
+            background-color: #3D0811; 
+            color: white; 
+            padding: 30px 20px; 
+            text-align: center; 
+            border-radius: 5px 5px 0 0; 
+        }}
+        .header h1 {{
+            margin: 0;
+            font-size: 32px;
+            letter-spacing: 1px;
+        }}
+        .content {{ 
+            background-color: #f9f9f9; 
+            padding: 40px 30px; 
+            border-radius: 0 0 5px 5px; 
+        }}
+        .promo-code {{ 
+            background-color: #fff; 
+            border: 2px dashed #3D0811; 
+            padding: 25px; 
+            text-align: center; 
+            margin: 25px 0; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(61, 8, 17, 0.1);
+        }}
+        .promo-code-text {{ 
+            font-size: 28px; 
+            font-weight: bold; 
+            color: #3D0811; 
+            letter-spacing: 3px; 
+            margin: 10px 0;
+        }}
+        .discount {{ 
+            font-size: 20px; 
+            color: #28a745; 
+            font-weight: bold; 
+            margin: 15px 0; 
+        }}
+        .footer {{ 
+            text-align: center; 
+            margin-top: 20px; 
+            color: #666; 
+            font-size: 12px; 
+        }}
+        .button {{ 
+            display: inline-block; 
+            background-color: #3D0811; 
+            color: white; 
+            padding: 14px 35px; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            margin: 20px 0; 
+            font-weight: bold;
+            letter-spacing: 1px;
+            transition: background-color 0.3s;
+        }}
+        .button:hover {{
+            background-color: #5a0c19;
+        }}
+        p {{
+            margin: 15px 0;
+        }}
+        .important {{
+            background-color: #fff3cd;
+            border-left: 4px solid #3D0811;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
     </style>
 </head>
 <body>
@@ -71,13 +145,15 @@ namespace Api.Services
             <p>We're excited to offer you a special discount!</p>
             
             <div class=""promo-code"">
-                <p style=""margin: 0 0 10px 0; color: #666;"">Your Promo Code:</p>
+                <p style=""margin: 0 0 10px 0; color: #666; font-size: 14px;"">Your Promo Code:</p>
                 <div class=""promo-code-text"">{promoCode}</div>
                 <div class=""discount"">{discountText}</div>
                 <p style=""margin: 10px 0 0 0; color: #666; font-size: 14px;"">{endDateText}</p>
             </div>
             
-            <p><strong>Important:</strong> To use this promo code, you must be a registered user. If you haven't already, please sign up on our website to take advantage of this offer.</p>
+            <div class=""important"">
+                <p style=""margin: 0;""><strong>Important:</strong> To use this promo code, you must be a registered user. If you haven't already, please sign up on our website to take advantage of this offer.</p>
+            </div>
             
             <div style=""text-align: center;"">
                 <a href=""{baseUrl}"" class=""button"">Shop Now</a>
@@ -100,7 +176,7 @@ namespace Api.Services
                 var sendGridApiKey = _configuration["Email:SendGridApiKey"];
                 if (!string.IsNullOrEmpty(sendGridApiKey) && provider.ToLower() == "sendgrid")
                 {
-                    return await SendWithRetryAsync(() => SendViaSendGridAsync(toEmail, toName, senderEmail, senderName, 
+                    return await SendWithRetryAsync(() => SendViaSendGridAsync(toEmail, toName, senderEmail, senderName,
                         $"Special Promo Code: {promoCode} - {discountText}", emailBodyHtml));
                 }
 
@@ -111,7 +187,7 @@ namespace Api.Services
                     // Remove spaces from App Password if present
                     senderPassword = senderPassword.Replace(" ", "");
                     _logger.LogInformation("Attempting to send promo code email to {Email} via Gmail SMTP", toEmail);
-                    return await SendWithRetryAsync(() => SendViaGmailAsync(toEmail, toName, senderEmail, senderName, 
+                    return await SendWithRetryAsync(() => SendViaGmailAsync(toEmail, toName, senderEmail, senderName,
                         $"Special Promo Code: {promoCode} - {discountText}", emailBodyHtml, senderPassword));
                 }
 
@@ -137,7 +213,7 @@ namespace Api.Services
 
             try
             {
-                var mailAddress = new MailAddress(email);
+                var mailAddress = new System.Net.Mail.MailAddress(email);
                 return mailAddress.Address == email;
             }
             catch
@@ -168,7 +244,7 @@ namespace Api.Services
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Email send attempt {Attempt} failed", attempt);
-                    
+
                     if (attempt < MaxRetryAttempts)
                     {
                         var delay = BaseRetryDelayMs * (int)Math.Pow(2, attempt - 1); // Exponential backoff
@@ -184,7 +260,7 @@ namespace Api.Services
             return false;
         }
 
-        private async Task<bool> SendViaGmailAsync(string toEmail, string toName, string senderEmail, string senderName, 
+        private async Task<bool> SendViaGmailAsync(string toEmail, string toName, string senderEmail, string senderName,
             string subject, string htmlBody, string password)
         {
             try
@@ -221,7 +297,7 @@ namespace Api.Services
             }
         }
 
-        private async Task<bool> SendViaSendGridAsync(string toEmail, string toName, string senderEmail, string senderName, 
+        private async Task<bool> SendViaSendGridAsync(string toEmail, string toName, string senderEmail, string senderName,
             string subject, string htmlBody)
         {
             try
@@ -263,7 +339,7 @@ namespace Api.Services
             DateTime? endDate)
         {
             var results = new Dictionary<string, bool>();
-            
+
             if (recipients == null || !recipients.Any())
             {
                 _logger.LogWarning("No recipients provided for batch email send");
@@ -305,11 +381,10 @@ namespace Api.Services
 
             var successCount = results.Values.Count(r => r);
             var failureCount = results.Count - successCount;
-            _logger.LogInformation("Batch email send completed: {SuccessCount} succeeded, {FailureCount} failed out of {TotalCount}", 
+            _logger.LogInformation("Batch email send completed: {SuccessCount} succeeded, {FailureCount} failed out of {TotalCount}",
                 successCount, failureCount, results.Count);
 
             return results;
         }
     }
 }
-
