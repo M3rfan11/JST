@@ -32,7 +32,7 @@ namespace Api.Models
         public decimal? DownPayment { get; set; } // Down payment amount for furniture orders
         
         [MaxLength(20)]
-        public string Status { get; set; } = "Pending"; // Pending, PENDING_PAYMENT, PROOF_SUBMITTED, UNDER_REVIEW, ACCEPTED, REJECTED, Confirmed, Shipped, Delivered, Cancelled
+        public string Status { get; set; } = "Pending"; // pending, proof_submitted, under_review, accepted, rejected, shipped, delivered, cancelled
         
         [MaxLength(20)]
         public string PaymentStatus { get; set; } = "Pending"; // Pending, Paid, PartiallyPaid, Refunded

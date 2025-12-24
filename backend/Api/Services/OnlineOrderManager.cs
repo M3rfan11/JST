@@ -219,6 +219,21 @@ public class OnlineOrderManager : IOnlineOrderManager
             var isValid = IsValidStatusTransition(normalizedCurrentStatus, normalizedNewStatus);
             _logger.LogInformation("Status transition validation result: {IsValid}", isValid);
             
+            // Additional validation: InstaPay-specific statuses only for InstaPay orders
+            var isInstaPayOrder = order.PaymentMethod?.ToUpper() == "INSTAPAY";
+            var isInstaPayStatus = normalizedNewStatus == "proof_submitted" || 
+                                   normalizedNewStatus == "under_review" || 
+                                   normalizedNewStatus == "rejected";
+            
+            if (isInstaPayStatus && !isInstaPayOrder)
+            {
+                result.Success = false;
+                result.ErrorMessage = $"Status '{request.Status}' is only available for InstaPay orders. This order uses {order.PaymentMethod ?? "Cash on Delivery"}.";
+                _logger.LogWarning("Status transition rejected: InstaPay-only status '{NewStatus}' attempted for non-InstaPay order {OrderId} (PaymentMethod: {PaymentMethod})", 
+                    normalizedNewStatus, orderId, order.PaymentMethod);
+                return result;
+            }
+            
             if (!isValid)
             {
                 result.Success = false;
@@ -227,11 +242,8 @@ public class OnlineOrderManager : IOnlineOrderManager
                 return result;
             }
 
-            // Normalize status to lowercase
-            var normalizedStatus = (request.Status ?? "").Trim().ToLower();
-            
             // Update order status (store in lowercase)
-            order.Status = normalizedStatus;
+            order.Status = normalizedNewStatus;
             order.UpdatedAt = DateTime.UtcNow;
 
             if (!string.IsNullOrEmpty(request.Notes))
@@ -240,7 +252,7 @@ public class OnlineOrderManager : IOnlineOrderManager
             }
 
             // Handle specific status transitions
-            switch (normalizedStatus)
+            switch (normalizedNewStatus)
             {
                 case "shipped":
                     // Set estimated delivery date (3 days from now if not provided)
@@ -272,7 +284,7 @@ public class OnlineOrderManager : IOnlineOrderManager
             await _context.SaveChangesAsync();
 
             result.Success = true;
-            result.NewStatus = normalizedStatus;
+            result.NewStatus = normalizedNewStatus;
 
             // Send notification
             await SendStatusUpdateNotificationAsync(orderId, request.Status);
@@ -1198,8 +1210,7 @@ public class OnlineOrderManager : IOnlineOrderManager
 
         var validTransitions = new Dictionary<string, string[]>
         {
-            { "pending", new[] { "accepted", "cancelled", "pending_payment" } },
-            { "pending_payment", new[] { "proof_submitted", "cancelled" } },
+            { "pending", new[] { "accepted", "cancelled", "proof_submitted" } },
             { "proof_submitted", new[] { "under_review", "accepted", "rejected", "cancelled" } },
             { "under_review", new[] { "accepted", "rejected", "cancelled" } },
             { "accepted", new[] { "shipped", "cancelled" } },

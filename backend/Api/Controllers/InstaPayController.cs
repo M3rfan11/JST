@@ -134,7 +134,7 @@ public class InstaPayController : ControllerBase
 
             // Check if order is in valid status for proof upload
             var normalizedStatus = (order.Status ?? "").Trim().ToLower();
-            if (normalizedStatus != "pending_payment" && normalizedStatus != "rejected")
+            if (normalizedStatus != "pending" && normalizedStatus != "rejected")
             {
                 return BadRequest($"Cannot upload proof for order with status: {order.Status}");
             }

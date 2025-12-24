@@ -143,8 +143,6 @@ export default function OrdersPage() {
     switch (status.toLowerCase()) {
       case "pending":
         return "bg-yellow-100 text-yellow-800"
-      case "pending_payment":
-        return "bg-orange-100 text-orange-800"
       case "proof_submitted":
         return "bg-blue-100 text-blue-800"
       case "under_review":
@@ -164,14 +162,21 @@ export default function OrdersPage() {
     }
   }
 
-  // Get valid status transitions based on current status
-  const getValidStatusTransitions = (currentStatus: string): string[] => {
+  // Get valid status transitions based on current status and payment method
+  const getValidStatusTransitions = (currentStatus: string, paymentMethod?: string): string[] => {
     const status = currentStatus.toLowerCase()
+    const isInstaPay = paymentMethod?.toUpperCase() === "INSTAPAY"
+    
+    let transitions: string[] = []
+    
     switch (status) {
       case "pending":
-        return ["pending", "accepted", "cancelled", "pending_payment"]
-      case "pending_payment":
-        return ["pending_payment", "proof_submitted", "cancelled"]
+        transitions = ["pending", "accepted", "cancelled"]
+        // Only add proof_submitted for InstaPay orders
+        if (isInstaPay) {
+          transitions.push("proof_submitted")
+        }
+        return transitions
       case "proof_submitted":
         return ["proof_submitted", "under_review", "accepted", "rejected", "cancelled"]
       case "under_review":
@@ -179,7 +184,12 @@ export default function OrdersPage() {
       case "accepted":
         return ["accepted", "shipped", "cancelled"]
       case "rejected":
-        return ["rejected", "proof_submitted", "cancelled"]
+        transitions = ["rejected", "cancelled"]
+        // Only add proof_submitted for InstaPay orders
+        if (isInstaPay) {
+          transitions.push("proof_submitted")
+        }
+        return transitions
       case "shipped":
         return ["shipped", "delivered", "cancelled"]
       case "delivered":
@@ -188,7 +198,12 @@ export default function OrdersPage() {
         return ["cancelled"] // No transitions allowed
       default:
         // For unknown statuses, allow common transitions
-        return ["pending", "accepted", "shipped", "delivered", "cancelled", "pending_payment", "proof_submitted", "under_review", "rejected"]
+        transitions = ["pending", "accepted", "shipped", "delivered", "cancelled"]
+        // Only add InstaPay-specific statuses for InstaPay orders
+        if (isInstaPay) {
+          transitions.push("proof_submitted", "under_review", "rejected")
+        }
+        return transitions
     }
   }
 
@@ -291,7 +306,7 @@ export default function OrdersPage() {
                       className="px-3 py-1.5 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-[#3D0811] disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ fontFamily: '"Dream Avenue"' }}
                     >
-                      {getValidStatusTransitions(order.status).map((status) => (
+                      {getValidStatusTransitions(order.status, order.paymentMethod).map((status) => (
                         <option key={status} value={status}>
                           {status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                         </option>
