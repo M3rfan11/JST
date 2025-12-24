@@ -616,12 +616,8 @@ public class CustomerOrderController : ControllerBase
                 }
             }
 
-            // Determine initial status based on payment method
+            // All orders start with pending status
             string initialStatus = "pending";
-            if (request.PaymentMethod?.ToUpper() == "INSTAPAY")
-            {
-                initialStatus = "pending_payment";
-            }
 
             var order = new SalesOrder
             {
@@ -990,12 +986,8 @@ public class CustomerOrderController : ControllerBase
             var orderNumber = GenerateOrderNumber();
             var totalAmount = orderAmount - discountAmount;
 
-            // Determine initial status based on payment method
+            // All orders start with pending status
             string initialStatus = "pending";
-            if (request.PaymentMethod?.ToUpper() == "INSTAPAY")
-            {
-                initialStatus = "pending_payment";
-            }
 
             var order = new SalesOrder
             {
