@@ -111,7 +111,7 @@ namespace Api.Services
         .button {{ 
             display: inline-block; 
             background-color: #3D0811; 
-            color: white; 
+            color: white !important; 
             padding: 14px 35px; 
             text-decoration: none; 
             border-radius: 5px; 
@@ -122,6 +122,9 @@ namespace Api.Services
         }}
         .button:hover {{
             background-color: #5a0c19;
+        }}
+        .button:visited {{
+            color: white !important;
         }}
         p {{
             margin: 15px 0;
@@ -173,7 +176,7 @@ namespace Api.Services
 </html>";
 
                 // Try SendGrid first (if API key is configured)
-                var sendGridApiKey = _configuration["Email:SendGridApiKey"];
+                var sendGridApiKey = _configuration["Email: SendGridApiKey"];
                 if (!string.IsNullOrEmpty(sendGridApiKey) && provider.ToLower() == "sendgrid")
                 {
                     return await SendWithRetryAsync(() => SendViaSendGridAsync(toEmail, toName, senderEmail, senderName,
