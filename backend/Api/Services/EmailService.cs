@@ -4,6 +4,7 @@ using MailKit.Security;
 using MimeKit;
 using SendGrid;
 using SendGrid.Helpers.Mail;
+using System.Net.Mail;
 
 namespace Api.Services
 {
@@ -11,6 +12,8 @@ namespace Api.Services
     {
         private readonly ILogger<EmailService> _logger;
         private readonly IConfiguration _configuration;
+        private const int MaxRetryAttempts = 3;
+        private const int BaseRetryDelayMs = 1000; // 1 second
 
         public EmailService(ILogger<EmailService> logger, IConfiguration configuration)
         {
@@ -20,11 +23,19 @@ namespace Api.Services
 
         public async Task<bool> SendPromoCodeNotificationAsync(string toEmail, string toName, string promoCode, decimal discountValue, string discountType, DateTime? endDate)
         {
+            // Validate email address
+            if (!IsValidEmail(toEmail))
+            {
+                _logger.LogWarning("Invalid email address: {Email}", toEmail);
+                return false;
+            }
+
             try
             {
                 var provider = _configuration["Email:Provider"] ?? "Gmail";
                 var senderEmail = _configuration["Email:SenderEmail"] ?? "me5280908@gmail.com";
                 var senderName = _configuration["Email:SenderName"] ?? "JST";
+                var baseUrl = _configuration["Email:BaseUrl"] ?? "http://localhost:3000";
                 
                 var discountText = discountType == "Percentage" 
                     ? $"{discountValue}% off" 
@@ -69,7 +80,7 @@ namespace Api.Services
             <p><strong>Important:</strong> To use this promo code, you must be a registered user. If you haven't already, please sign up on our website to take advantage of this offer.</p>
             
             <div style=""text-align: center;"">
-                <a href=""http://localhost:3000"" class=""button"">Shop Now</a>
+                <a href=""{baseUrl}"" class=""button"">Shop Now</a>
             </div>
             
             <p>Use this code at checkout to enjoy your discount!</p>
@@ -89,8 +100,8 @@ namespace Api.Services
                 var sendGridApiKey = _configuration["Email:SendGridApiKey"];
                 if (!string.IsNullOrEmpty(sendGridApiKey) && provider.ToLower() == "sendgrid")
                 {
-                    return await SendViaSendGridAsync(toEmail, toName, senderEmail, senderName, 
-                        $"Special Promo Code: {promoCode} - {discountText}", emailBodyHtml);
+                    return await SendWithRetryAsync(() => SendViaSendGridAsync(toEmail, toName, senderEmail, senderName, 
+                        $"Special Promo Code: {promoCode} - {discountText}", emailBodyHtml));
                 }
 
                 // Try Gmail SMTP (if password is configured)
@@ -100,20 +111,77 @@ namespace Api.Services
                     // Remove spaces from App Password if present
                     senderPassword = senderPassword.Replace(" ", "");
                     _logger.LogInformation("Attempting to send promo code email to {Email} via Gmail SMTP", toEmail);
-                    return await SendViaGmailAsync(toEmail, toName, senderEmail, senderName, 
-                        $"Special Promo Code: {promoCode} - {discountText}", emailBodyHtml, senderPassword);
+                    return await SendWithRetryAsync(() => SendViaGmailAsync(toEmail, toName, senderEmail, senderName, 
+                        $"Special Promo Code: {promoCode} - {discountText}", emailBodyHtml, senderPassword));
                 }
 
-                // If neither is configured, just log (don't fail)
-                _logger.LogInformation("Email not configured. Would send promo code email to {Email} for code {Code}", toEmail, promoCode);
-                _logger.LogInformation("Email content:\n{Content}", emailBodyHtml.Replace("<", "&lt;").Replace(">", "&gt;"));
-                return true; // Return true so the system thinks email was sent
+                // If neither is configured, return false (don't mark as sent)
+                _logger.LogWarning("Email not configured. Cannot send promo code email to {Email} for code {Code}. Please configure Email:SenderPassword or Email:SendGridApiKey", toEmail, promoCode);
+                _logger.LogInformation("Email content that would have been sent:\n{Content}", emailBodyHtml.Replace("<", "&lt;").Replace(">", "&gt;"));
+                return false; // Return false so the system knows email was NOT sent
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error sending promo code email to {Email}", toEmail);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Validates email address format using MailAddress
+        /// </summary>
+        private bool IsValidEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return false;
+
+            try
+            {
+                var mailAddress = new MailAddress(email);
+                return mailAddress.Address == email;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Sends email with exponential backoff retry logic
+        /// </summary>
+        private async Task<bool> SendWithRetryAsync(Func<Task<bool>> sendAction)
+        {
+            for (int attempt = 1; attempt <= MaxRetryAttempts; attempt++)
+            {
+                try
+                {
+                    var result = await sendAction();
+                    if (result)
+                    {
+                        if (attempt > 1)
+                        {
+                            _logger.LogInformation("Email sent successfully on attempt {Attempt}", attempt);
+                        }
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Email send attempt {Attempt} failed", attempt);
+                    
+                    if (attempt < MaxRetryAttempts)
+                    {
+                        var delay = BaseRetryDelayMs * (int)Math.Pow(2, attempt - 1); // Exponential backoff
+                        _logger.LogInformation("Retrying email send in {Delay}ms...", delay);
+                        await Task.Delay(delay);
+                    }
+                    else
+                    {
+                        _logger.LogError(ex, "All {MaxAttempts} email send attempts failed", MaxRetryAttempts);
+                    }
+                }
+            }
+            return false;
         }
 
         private async Task<bool> SendViaGmailAsync(string toEmail, string toName, string senderEmail, string senderName, 
@@ -182,6 +250,65 @@ namespace Api.Services
                 _logger.LogError(ex, "Error sending email via SendGrid to {Email}", toEmail);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Sends promo code notifications to multiple recipients in parallel using Task.WhenAll
+        /// </summary>
+        public async Task<Dictionary<string, bool>> SendPromoCodeNotificationsBatchAsync(
+            List<(string Email, string Name)> recipients,
+            string promoCode,
+            decimal discountValue,
+            string discountType,
+            DateTime? endDate)
+        {
+            var results = new Dictionary<string, bool>();
+            
+            if (recipients == null || !recipients.Any())
+            {
+                _logger.LogWarning("No recipients provided for batch email send");
+                return results;
+            }
+
+            _logger.LogInformation("Starting batch email send to {Count} recipients", recipients.Count);
+
+            // Create tasks for all email sends
+            var emailTasks = recipients.Select(async recipient =>
+            {
+                try
+                {
+                    var success = await SendPromoCodeNotificationAsync(
+                        recipient.Email,
+                        recipient.Name,
+                        promoCode,
+                        discountValue,
+                        discountType,
+                        endDate
+                    );
+                    return (recipient.Email, success);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in batch email send to {Email}", recipient.Email);
+                    return (recipient.Email, false);
+                }
+            }).ToList();
+
+            // Wait for all emails to be sent in parallel
+            var emailResults = await Task.WhenAll(emailTasks);
+
+            // Build results dictionary
+            foreach (var (email, success) in emailResults)
+            {
+                results[email] = success;
+            }
+
+            var successCount = results.Values.Count(r => r);
+            var failureCount = results.Count - successCount;
+            _logger.LogInformation("Batch email send completed: {SuccessCount} succeeded, {FailureCount} failed out of {TotalCount}", 
+                successCount, failureCount, results.Count);
+
+            return results;
         }
     }
 }

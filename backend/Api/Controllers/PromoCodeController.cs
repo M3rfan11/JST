@@ -6,6 +6,7 @@ using Api.DTOs;
 using Api.Models;
 using Api.Services;
 using System.Security.Claims;
+using System.Net.Mail;
 
 namespace Api.Controllers;
 
@@ -304,30 +305,40 @@ public class PromoCodeController : ControllerBase
                     _context.PromoCodeUsers.AddRange(promoCodeUsers);
                     await _context.SaveChangesAsync();
 
-                    // Automatically send email notifications to all assigned registered users
-                    foreach (var promoCodeUser in promoCodeUsers)
-                    {
-                        var user = users.FirstOrDefault(u => u.Id == promoCodeUser.UserId);
-                        if (user == null) continue;
-                        if (!string.IsNullOrEmpty(user.Email))
+                    // Automatically send email notifications to all assigned registered users (batch processing)
+                    var emailRecipients = promoCodeUsers
+                        .Select(pcu =>
                         {
-                            var emailSent = await _emailService.SendPromoCodeNotificationAsync(
-                                user.Email,
-                                user.FullName,
-                                promoCode.Code,
-                                promoCode.DiscountValue,
-                                promoCode.DiscountType,
-                                promoCode.EndDate
-                            );
+                            var user = users.FirstOrDefault(u => u.Id == pcu.UserId);
+                            return user != null && !string.IsNullOrEmpty(user.Email) 
+                                ? (Email: user.Email, Name: user.FullName, PromoCodeUser: pcu) 
+                                : null;
+                        })
+                        .Where(r => r != null)
+                        .ToList();
 
-                            if (emailSent)
+                    if (emailRecipients.Any())
+                    {
+                        var recipients = emailRecipients.Select(r => (r.Email, r.Name)).ToList();
+                        var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
+                            recipients,
+                            promoCode.Code,
+                            promoCode.DiscountValue,
+                            promoCode.DiscountType,
+                            promoCode.EndDate
+                        );
+
+                        // Update notification status based on results
+                        foreach (var recipient in emailRecipients)
+                        {
+                            if (emailResults.TryGetValue(recipient.Email, out var success) && success)
                             {
-                                promoCodeUser.IsNotified = true;
-                                promoCodeUser.NotifiedAt = DateTime.UtcNow;
+                                recipient.PromoCodeUser.IsNotified = true;
+                                recipient.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
                             }
                         }
+                        await _context.SaveChangesAsync();
                     }
-                    await _context.SaveChangesAsync();
                 }
             }
 
@@ -335,15 +346,24 @@ public class PromoCodeController : ControllerBase
             if (request.EmailAddresses != null && request.EmailAddresses.Any())
             {
                 var processedEmails = new HashSet<string>();
+                var emailRecipientsToNotify = new List<(string Email, string Name, PromoCodeUser? PromoCodeUser)>();
                 
                 foreach (var emailAddress in request.EmailAddresses)
                 {
                     if (string.IsNullOrWhiteSpace(emailAddress)) continue;
                     
-                    // Validate email format
-                    var trimmedEmail = emailAddress.Trim().ToLower();
-                    if (!trimmedEmail.Contains("@") || processedEmails.Contains(trimmedEmail)) continue;
-                    processedEmails.Add(trimmedEmail);
+                    var trimmedEmail = emailAddress.Trim();
+                    
+                    // Validate email format using MailAddress
+                    if (!IsValidEmail(trimmedEmail))
+                    {
+                        _logger.LogWarning("Invalid email address format: {Email}", trimmedEmail);
+                        continue;
+                    }
+                    
+                    var normalizedEmail = trimmedEmail.ToLower();
+                    if (processedEmails.Contains(normalizedEmail)) continue;
+                    processedEmails.Add(normalizedEmail);
 
                     // Check if this email belongs to a registered user
                     var registeredUser = await _context.Users
@@ -367,40 +387,44 @@ public class PromoCodeController : ControllerBase
                             _context.PromoCodeUsers.Add(promoCodeUser);
                             await _context.SaveChangesAsync();
                             
-                            // Automatically send email notification to registered user
-                            var emailSent = await _emailService.SendPromoCodeNotificationAsync(
-                                registeredUser.Email!,
-                                registeredUser.FullName,
-                                promoCode.Code,
-                                promoCode.DiscountValue,
-                                promoCode.DiscountType,
-                                promoCode.EndDate
-                            );
-
-                            if (emailSent)
-                            {
-                                promoCodeUser.IsNotified = true;
-                                promoCodeUser.NotifiedAt = DateTime.UtcNow;
-                                await _context.SaveChangesAsync();
-                            }
+                            // Queue email notification for registered user
+                            emailRecipientsToNotify.Add((registeredUser.Email!, registeredUser.FullName, promoCodeUser));
                         }
                     }
                     else
                     {
-                        // Non-registered email - send notification
+                        // Non-registered email - queue notification if enabled
                         // Note: The email already includes a note that registration is required to use the code
-                        if (request.SendEmailNotification)
+                        if (request.SendEmailNotification ?? true)
                         {
-                            await _emailService.SendPromoCodeNotificationAsync(
-                                trimmedEmail,
-                                "Valued Customer", // Generic name for non-registered
-                                promoCode.Code,
-                                promoCode.DiscountValue,
-                                promoCode.DiscountType,
-                                promoCode.EndDate
-                            );
+                            emailRecipientsToNotify.Add((trimmedEmail, "Valued Customer", null));
                         }
                     }
+                }
+
+                // Send all queued emails in batch
+                if (emailRecipientsToNotify.Any())
+                {
+                    var recipients = emailRecipientsToNotify.Select(r => (r.Email, r.Name)).ToList();
+                    var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
+                        recipients,
+                        promoCode.Code,
+                        promoCode.DiscountValue,
+                        promoCode.DiscountType,
+                        promoCode.EndDate
+                    );
+
+                    // Update notification status for registered users
+                    foreach (var recipient in emailRecipientsToNotify)
+                    {
+                        if (recipient.PromoCodeUser != null && 
+                            emailResults.TryGetValue(recipient.Email, out var success) && success)
+                        {
+                            recipient.PromoCodeUser.IsNotified = true;
+                            recipient.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
+                        }
+                    }
+                    await _context.SaveChangesAsync();
                 }
             }
 
@@ -581,31 +605,41 @@ public class PromoCodeController : ControllerBase
                     _context.PromoCodeUsers.AddRange(promoCodeUsers);
                     await _context.SaveChangesAsync();
 
-                    // Automatically send email notifications to newly added users
+                    // Automatically send email notifications to newly added users (batch processing)
                     var newlyAddedUsers = promoCodeUsers.Where(pcu => !existingUserIds.Contains(pcu.UserId)).ToList();
-                    foreach (var promoCodeUser in newlyAddedUsers)
-                    {
-                        var user = users.FirstOrDefault(u => u.Id == promoCodeUser.UserId);
-                        if (user == null) continue;
-                        if (!string.IsNullOrEmpty(user.Email))
+                    var emailRecipients = newlyAddedUsers
+                        .Select(pcu =>
                         {
-                            var emailSent = await _emailService.SendPromoCodeNotificationAsync(
-                                user.Email,
-                                user.FullName,
-                                promoCode.Code,
-                                promoCode.DiscountValue,
-                                promoCode.DiscountType,
-                                promoCode.EndDate
-                            );
+                            var user = users.FirstOrDefault(u => u.Id == pcu.UserId);
+                            return user != null && !string.IsNullOrEmpty(user.Email)
+                                ? (Email: user.Email, Name: user.FullName, PromoCodeUser: pcu)
+                                : null;
+                        })
+                        .Where(r => r != null)
+                        .ToList();
 
-                            if (emailSent)
+                    if (emailRecipients.Any())
+                    {
+                        var recipients = emailRecipients.Select(r => (r.Email, r.Name)).ToList();
+                        var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
+                            recipients,
+                            promoCode.Code,
+                            promoCode.DiscountValue,
+                            promoCode.DiscountType,
+                            promoCode.EndDate
+                        );
+
+                        // Update notification status based on results
+                        foreach (var recipient in emailRecipients)
+                        {
+                            if (emailResults.TryGetValue(recipient.Email, out var success) && success)
                             {
-                                promoCodeUser.IsNotified = true;
-                                promoCodeUser.NotifiedAt = DateTime.UtcNow;
+                                recipient.PromoCodeUser.IsNotified = true;
+                                recipient.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
                             }
                         }
+                        await _context.SaveChangesAsync();
                     }
-                    await _context.SaveChangesAsync();
                 }
             }
 
@@ -614,15 +648,24 @@ public class PromoCodeController : ControllerBase
             {
                 var processedEmails = new HashSet<string>();
                 var existingUserIds = promoCode.PromoCodeUsers.Select(pcu => pcu.UserId).ToList();
+                var emailRecipientsToNotify = new List<(string Email, string Name, PromoCodeUser? PromoCodeUser)>();
                 
                 foreach (var emailAddress in request.EmailAddresses)
                 {
                     if (string.IsNullOrWhiteSpace(emailAddress)) continue;
                     
-                    // Validate email format
-                    var trimmedEmail = emailAddress.Trim().ToLower();
-                    if (!trimmedEmail.Contains("@") || processedEmails.Contains(trimmedEmail)) continue;
-                    processedEmails.Add(trimmedEmail);
+                    var trimmedEmail = emailAddress.Trim();
+                    
+                    // Validate email format using MailAddress
+                    if (!IsValidEmail(trimmedEmail))
+                    {
+                        _logger.LogWarning("Invalid email address format: {Email}", trimmedEmail);
+                        continue;
+                    }
+                    
+                    var normalizedEmail = trimmedEmail.ToLower();
+                    if (processedEmails.Contains(normalizedEmail)) continue;
+                    processedEmails.Add(normalizedEmail);
 
                     // Check if this email belongs to a registered user
                     var registeredUser = await _context.Users
@@ -646,39 +689,43 @@ public class PromoCodeController : ControllerBase
                             _context.PromoCodeUsers.Add(promoCodeUser);
                             await _context.SaveChangesAsync();
                             
-                            // Automatically send email notification to newly added registered user
-                            var emailSent = await _emailService.SendPromoCodeNotificationAsync(
-                                registeredUser.Email!,
-                                registeredUser.FullName,
-                                promoCode.Code,
-                                promoCode.DiscountValue,
-                                promoCode.DiscountType,
-                                promoCode.EndDate
-                            );
-
-                            if (emailSent)
-                            {
-                                promoCodeUser.IsNotified = true;
-                                promoCodeUser.NotifiedAt = DateTime.UtcNow;
-                                await _context.SaveChangesAsync();
-                            }
+                            // Queue email notification for registered user
+                            emailRecipientsToNotify.Add((registeredUser.Email!, registeredUser.FullName, promoCodeUser));
                         }
                     }
                     else
                     {
-                        // Non-registered email - send notification if SendEmailNotification is enabled (defaults to true)
+                        // Non-registered email - queue notification if enabled
                         if (request.SendEmailNotification ?? true)
                         {
-                            await _emailService.SendPromoCodeNotificationAsync(
-                                trimmedEmail,
-                                "Valued Customer",
-                                promoCode.Code,
-                                promoCode.DiscountValue,
-                                promoCode.DiscountType,
-                                promoCode.EndDate
-                            );
+                            emailRecipientsToNotify.Add((trimmedEmail, "Valued Customer", null));
                         }
                     }
+                }
+
+                // Send all queued emails in batch
+                if (emailRecipientsToNotify.Any())
+                {
+                    var recipients = emailRecipientsToNotify.Select(r => (r.Email, r.Name)).ToList();
+                    var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
+                        recipients,
+                        promoCode.Code,
+                        promoCode.DiscountValue,
+                        promoCode.DiscountType,
+                        promoCode.EndDate
+                    );
+
+                    // Update notification status for registered users
+                    foreach (var recipient in emailRecipientsToNotify)
+                    {
+                        if (recipient.PromoCodeUser != null &&
+                            emailResults.TryGetValue(recipient.Email, out var success) && success)
+                        {
+                            recipient.PromoCodeUser.IsNotified = true;
+                            recipient.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
+                        }
+                    }
+                    await _context.SaveChangesAsync();
                 }
             }
 
@@ -1129,6 +1176,25 @@ public class PromoCodeController : ControllerBase
         {
             _logger.LogError(ex, "Error retrieving promo code usage for {Id}", id);
             return StatusCode(500, new { message = "An error occurred while retrieving promo code usage" });
+        }
+    }
+
+    /// <summary>
+    /// Validates email address format using MailAddress
+    /// </summary>
+    private bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        try
+        {
+            var mailAddress = new MailAddress(email);
+            return mailAddress.Address == email;
+        }
+        catch
+        {
+            return false;
         }
     }
 }
