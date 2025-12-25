@@ -52,10 +52,10 @@ export function Header({ hideOnButtonHover = false }: HeaderProps = {}) {
 
   return (
     <header 
-      className={`fixed top-[28px] left-0 right-0 w-full z-40 transition-all duration-300 ${
+      className={`transition-all duration-300 w-full z-40 ${
         shouldBeTransparent 
-          ? 'bg-transparent' 
-          : 'bg-white border-b border-border'
+          ? 'absolute top-[28px] bg-transparent border-transparent' 
+          : 'fixed top-[28px] bg-white border-b border-border shadow-sm animate-in slide-in-from-top-full'
       } ${hideOnButtonHover ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}
       style={{ backgroundColor: shouldBeTransparent ? 'transparent' : 'white' }}
     >

@@ -320,7 +320,7 @@ public class PromoCodeController : ControllerBase
 
                     if (emailRecipients.Any())
                     {
-                        var recipients = emailRecipients.Where(r => r != null).Select(r => (r!.Value.Email, r!.Value.Name)).ToList();
+                        var recipients = emailRecipients.Select(r => (r.Email, r.Name)).ToList();
                         var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
                             recipients,
                             promoCode.Code,
@@ -330,13 +330,12 @@ public class PromoCodeController : ControllerBase
                         );
 
                         // Update notification status based on results
-                        foreach (var recipient in emailRecipients.Where(r => r != null))
+                        foreach (var recipient in emailRecipients)
                         {
-                            var r = recipient!.Value;
-                            if (emailResults.TryGetValue(r.Email, out var success) && success)
+                            if (emailResults.TryGetValue(recipient.Email, out var success) && success)
                             {
-                                r.PromoCodeUser.IsNotified = true;
-                                r.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
+                                recipient.PromoCodeUser.IsNotified = true;
+                                recipient.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
                             }
                         }
                         await _context.SaveChangesAsync();
@@ -623,7 +622,7 @@ public class PromoCodeController : ControllerBase
 
                     if (emailRecipients.Any())
                     {
-                        var recipients = emailRecipients.Where(r => r != null).Select(r => (r!.Value.Email, r!.Value.Name)).ToList();
+                        var recipients = emailRecipients.Select(r => (r.Email, r.Name)).ToList();
                         var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
                             recipients,
                             promoCode.Code,
@@ -633,13 +632,12 @@ public class PromoCodeController : ControllerBase
                         );
 
                         // Update notification status based on results
-                        foreach (var recipient in emailRecipients.Where(r => r != null))
+                        foreach (var recipient in emailRecipients)
                         {
-                            var r = recipient!.Value;
-                            if (emailResults.TryGetValue(r.Email, out var success) && success)
+                            if (emailResults.TryGetValue(recipient.Email, out var success) && success)
                             {
-                                r.PromoCodeUser.IsNotified = true;
-                                r.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
+                                recipient.PromoCodeUser.IsNotified = true;
+                                recipient.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
                             }
                         }
                         await _context.SaveChangesAsync();

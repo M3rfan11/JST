@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import Image from "next/image"
 import { ProductGrid } from "@/components/product-grid"
+import { HeroBackground } from "@/components/hero-background"
 import { useState, useEffect, useRef } from "react"
 
 export default function Home() {
@@ -61,8 +62,13 @@ export default function Home() {
       <Header hideOnButtonHover={isHoveringButton} />
 
       <section id="hero-video-section" className="relative h-[70vh] sm:h-[80vh] flex items-center justify-center overflow-hidden pt-16">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-          {!useFallback ? (
+        {/* use background with offwhite color */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 z-0 pointer-events-none">
+            <HeroBackground />
+          </div>
+          <div className="absolute inset-0 z-10">
+            {!useFallback ? (
             <video
               ref={videoRef}
               autoPlay
@@ -82,23 +88,25 @@ export default function Home() {
                   }
                 }, 1500)
               }}
+              poster="/video-poster.jpg"
             >
+              <source src="/videoJST.webm" type="video/webm" />
               <source src="/videoJST.mp4" type="video/mp4" />
-              <source src="/videoJST.MOV" type="video/quicktime" />
             </video>
           ) : (
             <div className="absolute inset-0 w-full h-full">
               <Image
-                src="/logo2.png"
+                src="/video-poster.jpg"
                 alt="JST Fashion"
                 fill
-                className="object-cover opacity-30"
+                className="object-cover"
                 priority
               />
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900" />
+              <div className="absolute inset-0 bg-black/50" />
             </div>
           )}
-          <div className="absolute inset-0 bg-black/40" />
+          </div>
+          <div className="absolute inset-0 z-20 bg-black/40" />
         </div>
 
         <div className="relative z-10 text-center px-4 sm:px-6 max-w-4xl mx-auto">
