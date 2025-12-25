@@ -25,26 +25,42 @@ export function Header({ hideOnButtonHover = false }: HeaderProps = {}) {
 
   useEffect(() => {
     setMounted(true)
-    // Only apply video scroll logic on home page
     if (!isHomePage) {
       setIsOverVideo(false)
       return
     }
 
-    const handleScroll = () => {
+    let ticking = false
+    let videoBottom = 0
+
+    const updateVideoBottom = () => {
       const videoSection = document.getElementById('hero-video-section')
       if (videoSection) {
-        const videoBottom = videoSection.offsetTop + videoSection.offsetHeight
-        const scrollPosition = window.scrollY
-        // Check if we've scrolled past the video section
-        setIsOverVideo(scrollPosition < videoBottom - 108) // 28px ticker + 80px header
+        videoBottom = videoSection.offsetTop + videoSection.offsetHeight
       }
     }
 
-    window.addEventListener('scroll', handleScroll)
-    handleScroll() // Check initial state
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollPosition = window.scrollY
+          // Check if we've scrolled past the video section
+          setIsOverVideo(scrollPosition < videoBottom - 108) // 28px ticker + 80px header
+          ticking = false
+        })
+        ticking = true
+      }
+    }
 
-    return () => window.removeEventListener('scroll', handleScroll)
+    updateVideoBottom()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', updateVideoBottom)
+    handleScroll()
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', updateVideoBottom)
+    }
   }, [isHomePage])
 
   // On non-home pages, always use white header
@@ -52,12 +68,11 @@ export function Header({ hideOnButtonHover = false }: HeaderProps = {}) {
 
   return (
     <header 
-      className={`transition-all duration-300 w-full z-40 ${
+      className={`transition-all duration-200 w-full z-40 ${
         shouldBeTransparent 
           ? 'absolute top-[28px] bg-transparent border-transparent' 
           : 'fixed top-[28px] bg-white border-b border-border shadow-sm animate-in slide-in-from-top-full'
       } ${hideOnButtonHover ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}
-      style={{ backgroundColor: shouldBeTransparent ? 'transparent' : 'white' }}
     >
       <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
         {/* Logo */}

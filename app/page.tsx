@@ -85,7 +85,7 @@ export default function Home() {
           <div className="absolute inset-0 z-20 bg-black/40" />
         </div>
 
-        <div className="relative z-10 text-center px-4 sm:px-6 max-w-4xl mx-auto">
+        <div className="relative z-30 text-center px-4 sm:px-6 max-w-4xl mx-auto">
           <h1 className="font-serif text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold mb-6 tracking-tight text-white" style={{ fontFamily: '"Dream Avenue"' }}>
             Refined Simplicity
           </h1>
