@@ -5,56 +5,45 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import Image from "next/image"
 import { ProductGrid } from "@/components/product-grid"
-import { HeroBackground } from "@/components/hero-background"
 import { useState, useEffect, useRef } from "react"
 
 export default function Home() {
-  const [videoError, setVideoError] = useState(false)
-  const [videoLoaded, setVideoLoaded] = useState(false)
   const [useFallback, setUseFallback] = useState(false)
   const [isHoveringButton, setIsHoveringButton] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    // Check connection speed and set fallback if needed (only in browser)
+    // Check connection speed
     if (typeof window !== 'undefined' && 'connection' in navigator) {
       const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection
       if (connection) {
-        // If on slow connection (2G, 3G) or save-data mode, use fallback immediately
         if (
           connection.effectiveType === 'slow-2g' || 
           connection.effectiveType === '2g' || 
           connection.effectiveType === '3g' ||
           connection.saveData ||
-          (connection.downlink && connection.downlink < 1.5) // Less than 1.5 Mbps
+          (connection.downlink && connection.downlink < 1.5)
         ) {
           setUseFallback(true)
-          return // Exit early, don't try to load video
+          return
         }
       }
     }
 
-    // Set shorter timeout for video loading (2 seconds instead of 5)
-    const loadTimeout = setTimeout(() => {
-      if (!videoLoaded && videoRef.current) {
-        const video = videoRef.current
-        // If video hasn't loaded enough data, use fallback
-        if (video.readyState < 2) { // HAVE_CURRENT_DATA
+    // Fallback timeout if video doesn't play quickly
+    const timeoutId = setTimeout(() => {
+      if (videoRef.current) {
+        if (videoRef.current.readyState < 3) { // HAVE_FUTURE_DATA
           setUseFallback(true)
         }
       }
-    }, 2000) // Reduced from 5000ms to 2000ms
+    }, 2500)
 
-    return () => clearTimeout(loadTimeout)
-  }, [videoLoaded])
+    return () => clearTimeout(timeoutId)
+  }, [])
 
   const handleVideoError = () => {
-    setVideoError(true)
     setUseFallback(true)
-  }
-
-  const handleVideoLoaded = () => {
-    setVideoLoaded(true)
   }
 
   return (
@@ -63,10 +52,7 @@ export default function Home() {
 
       <section id="hero-video-section" className="relative h-[70vh] sm:h-[80vh] flex items-center justify-center overflow-hidden pt-16">
         {/* use background with offwhite color */}
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 z-0 pointer-events-none">
-            <HeroBackground />
-          </div>
+        <div className="absolute inset-0 bg-[#FAF9F6]">
           <div className="absolute inset-0 z-10">
             {!useFallback ? (
             <video
@@ -76,18 +62,8 @@ export default function Home() {
               muted
               playsInline
               className="absolute inset-0 w-full h-full object-cover"
-              preload="none"
+              preload="auto"
               onError={handleVideoError}
-              onLoadedData={handleVideoLoaded}
-              onCanPlay={handleVideoLoaded}
-              onLoadStart={() => {
-                // If video takes too long to start loading, switch to fallback
-                setTimeout(() => {
-                  if (videoRef.current && videoRef.current.readyState === 0) {
-                    setUseFallback(true)
-                  }
-                }, 1500)
-              }}
               poster="/video-poster.jpg"
             >
               <source src="/videoJST.webm" type="video/webm" />
