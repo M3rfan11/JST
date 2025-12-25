@@ -99,8 +99,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
 
             {/* Navigation */}
-            <nav className="p-4 flex-shrink-0" style={{ backgroundColor: '#3D0811' }}>
-              <ul className="space-y-2">
+            <nav className="p-4 flex-1 flex flex-col" style={{ backgroundColor: '#3D0811' }}>
+              <ul className="space-y-2 flex-1">
                 {menuItems.map((item) => {
                   const Icon = item.icon
                   const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))
@@ -126,33 +126,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </li>
                   )
                 })}
-                
-                {/* Footer Actions - Moved inside nav */}
-                <li className="border-t pt-2 mt-2" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-                  <Link
-                    href="/"
-                    onClick={() => setSidebarOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-                    style={{ fontFamily: '"Dream Avenue"' }}
-                  >
-                    <span>← Back to Site</span>
-                  </Link>
-                </li>
-                <li>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-3 px-4 py-3 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors w-full text-left"
-                    style={{ fontFamily: '"Dream Avenue"' }}
-                  >
-                    <LogOut className="h-5 w-5" />
-                    <span>Logout</span>
-                  </button>
-                </li>
               </ul>
+              
+              {/* Footer Actions - At the bottom */}
+              <div className="mt-auto pt-4 border-t" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+                <ul className="space-y-2">
+                  <li>
+                    <Link
+                      href="/"
+                      onClick={() => setSidebarOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                      style={{ fontFamily: '"Dream Avenue"' }}
+                    >
+                      <span>← Back to Site</span>
+                    </Link>
+                  </li>
+                  <li>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-3 px-4 py-3 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors w-full text-left"
+                      style={{ fontFamily: '"Dream Avenue"' }}
+                    >
+                      <LogOut className="h-5 w-5" />
+                      <span>Logout</span>
+                    </button>
+                  </li>
+                </ul>
+              </div>
             </nav>
-            
-            {/* Empty space with main background color */}
-            <div className="flex-1" style={{ backgroundColor: 'rgba(206, 180, 157, 1)' }}></div>
           </div>
         </aside>
 

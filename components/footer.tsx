@@ -3,9 +3,13 @@
 import Link from "next/link"
 import Image from "next/image"
 
-export function Footer() {
+interface FooterProps {
+  noTopMargin?: boolean
+}
+
+export function Footer({ noTopMargin = false }: FooterProps = {}) {
   return (
-    <footer className="border-t border-border mt-16 sm:mt-24" style={{ backgroundColor: 'rgba(206, 180, 157, 1)', borderTopColor: 'rgba(206, 180, 157, 1)' }}>
+    <footer className={`border-t border-border ${noTopMargin ? '' : 'mt-16 sm:mt-24'}`} style={{ backgroundColor: 'rgba(206, 180, 157, 1)', borderTopColor: 'rgba(206, 180, 157, 1)' }}>
       <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
           <div>

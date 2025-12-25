@@ -64,12 +64,14 @@ function ShopContent() {
     <div className="min-h-screen">
       <Header />
       <div className="container mx-auto px-4 md:px-6 py-8 md:py-12 pt-40 mt-12">
-        <Button variant="ghost" asChild className="mb-6" style={{ fontFamily: '"Dream Avenue"' }}>
-          <Link href="/">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Home
-          </Link>
-        </Button>
+        <div className="mt-8">
+          <Button variant="ghost" asChild className="mb-6" style={{ fontFamily: '"Dream Avenue"' }}>
+            <Link href="/" style={{ fontFamily: '"Dream Avenue"' }}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              <span style={{ fontFamily: '"Dream Avenue"' }}>Back to Home</span>
+            </Link>
+          </Button>
+        </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h1 className="font-serif text-4xl md:text-5xl font-semibold" style={{ fontFamily: '"Dream Avenue"' }}>

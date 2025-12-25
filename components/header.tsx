@@ -10,7 +10,11 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "./ui/sheet"
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
 
-export function Header() {
+interface HeaderProps {
+  hideOnButtonHover?: boolean
+}
+
+export function Header({ hideOnButtonHover = false }: HeaderProps = {}) {
   const { itemCount } = useCart()
   const { isAuthenticated, logout, user, isSuperAdmin } = useAuth()
   const [open, setOpen] = useState(false)
@@ -31,8 +35,9 @@ export function Header() {
       const videoSection = document.getElementById('hero-video-section')
       if (videoSection) {
         const videoBottom = videoSection.offsetTop + videoSection.offsetHeight
-        const scrollPosition = window.scrollY + 28 + 80 // header top + header height
-        setIsOverVideo(scrollPosition < videoBottom)
+        const scrollPosition = window.scrollY
+        // Check if we've scrolled past the video section
+        setIsOverVideo(scrollPosition < videoBottom - 108) // 28px ticker + 80px header
       }
     }
 
@@ -51,7 +56,7 @@ export function Header() {
         shouldBeTransparent 
           ? 'bg-transparent' 
           : 'bg-white border-b border-border'
-      }`}
+      } ${hideOnButtonHover ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}
       style={{ backgroundColor: shouldBeTransparent ? 'transparent' : 'white' }}
     >
       <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">

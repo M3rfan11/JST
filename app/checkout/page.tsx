@@ -42,13 +42,15 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 md:py-12">
-        <Button variant="ghost" asChild className="mb-4" style={{ fontFamily: '"Dream Avenue"' }}>
-          <Link href="/cart">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Cart
-          </Link>
-        </Button>
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 md:py-12 pt-40 mt-12">
+        <div className="mt-8">
+          <Button variant="ghost" asChild className="mb-4" style={{ fontFamily: '"Dream Avenue"' }}>
+            <Link href="/cart">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Cart
+            </Link>
+          </Button>
+        </div>
 
         <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold mb-6 sm:mb-8" style={{ fontFamily: '"Dream Avenue"' }}>Checkout</h1>
 

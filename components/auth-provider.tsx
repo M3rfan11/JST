@@ -38,21 +38,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     if (savedUser && savedToken) {
       try {
-        setUser(JSON.parse(savedUser))
+        const parsedUser = JSON.parse(savedUser)
+        setUser(parsedUser)
         // Verify token is still valid by calling /api/auth/me
-        api.auth.me().catch(() => {
-          // Token invalid, clear storage
-          localStorage.removeItem("currentUser")
-          localStorage.removeItem("authToken")
-          setUser(null)
-        })
+        api.auth.me()
+          .then(() => {
+            // Token is valid, keep user
+            setIsInitialized(true)
+          })
+          .catch((error: any) => {
+            // Token invalid (401/403) or other error, clear storage
+            if (error?.status === 401 || error?.status === 403) {
+              localStorage.removeItem("currentUser")
+              localStorage.removeItem("authToken")
+              setUser(null)
+            }
+            // Mark as initialized even if verification failed (could be network issue)
+            setIsInitialized(true)
+          })
       } catch (e) {
         localStorage.removeItem("currentUser")
         localStorage.removeItem("authToken")
+        setIsInitialized(true)
       }
+    } else {
+      // No saved user/token, mark as initialized immediately
+      setIsInitialized(true)
     }
-    // Mark auth as initialized after checking localStorage
-    setIsInitialized(true)
   }, [])
 
   const login = async (email: string, password: string): Promise<{ success: boolean; redirectTo?: string }> => {

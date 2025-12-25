@@ -111,13 +111,15 @@ export default function CartPage() {
   return (
     <div className="min-h-screen">
       <Header />
-      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 md:py-12">
-        <Button variant="ghost" asChild className="mb-4" style={{ fontFamily: '"Dream Avenue"' }}>
-          <Link href="/shop">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Continue Shopping
-          </Link>
-        </Button>
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 md:py-12 pt-40 mt-12">
+        <div className="mt-8">
+          <Button variant="ghost" asChild className="mb-4" style={{ fontFamily: '"Dream Avenue"' }}>
+            <Link href="/shop">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Continue Shopping
+            </Link>
+          </Button>
+        </div>
 
         <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold mb-6 sm:mb-8" style={{ fontFamily: '"Dream Avenue"' }}>Shopping Cart</h1>
 
@@ -308,8 +310,8 @@ export default function CartPage() {
                 asChild
                 variant="outline"
                 size="lg"
-                className="w-full h-11 sm:h-12 text-sm sm:text-base bg-transparent"
-                style={{ backgroundColor: '#3D0811', color: 'rgba(255, 255, 255, 1)', fontFamily: '"Dream Avenue"', borderColor: '#3D0811' }}
+                className="w-full h-11 sm:h-12 text-sm sm:text-base border-2 hover:bg-[#3D0811]/10"
+                style={{ fontFamily: '"Dream Avenue"', borderColor: '#3D0811', color: '#3D0811' }}
               >
                 <Link href="/shop">Continue Shopping</Link>
               </Button>

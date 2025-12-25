@@ -1,23 +1,11 @@
 import { Header } from "@/components/header"
 import Image from "next/image"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
 import { SpiralAnimation } from "@/components/ui/spiral-animation"
 
 export default function AboutPage() {
   return (
     <div className="min-h-screen">
       <Header />
-
-      <div className="container mx-auto px-4 sm:px-6 py-4">
-        <Button variant="ghost" asChild style={{ fontFamily: '"Dream Avenue"' }}>
-          <Link href="/">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Home
-          </Link>
-        </Button>
-      </div>
 
       {/* Hero Section */}
       <section className="relative h-[50vh] sm:h-[60vh] flex items-center justify-center overflow-hidden" style={{ backgroundColor: '#3D0811' }}>

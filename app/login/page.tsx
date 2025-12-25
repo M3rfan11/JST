@@ -47,17 +47,19 @@ export default function LoginPage() {
     <div className="min-h-screen">
       <Header />
       <div className="container mx-auto px-4 sm:px-6 py-8 md:py-12 max-w-md pt-40 mt-12">
-        <Button 
-          variant="ghost" 
-          asChild 
-          className="mb-6 transition-opacity duration-300" 
-          style={{ fontFamily: '"Dream Avenue"' }}
-        >
-          <Link href="/">
-            <ArrowLeft className="h-4 w-4 mr-2 " />
-            Back to Home
-          </Link>
-        </Button>
+        <div className="mt-8">
+          <Button 
+            variant="ghost" 
+            asChild 
+            className="mb-6 transition-opacity duration-300" 
+            style={{ fontFamily: '"Dream Avenue"' }}
+          >
+            <Link href="/">
+              <ArrowLeft className="h-4 w-4 mr-2 " />
+              Back to Home
+            </Link>
+          </Button>
+        </div>
 
         <div className="space-y-6">
           <div>

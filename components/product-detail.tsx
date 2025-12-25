@@ -20,6 +20,14 @@ interface Product {
   variants?: any[]
 }
 
+interface SizeStockInfo {
+  size: string
+  quantity: number
+  isOutOfStock: boolean
+  isAvailable: boolean
+  variantId?: number
+}
+
 export function ProductDetail({ product }: { product: Product }) {
   const [selectedImage, setSelectedImage] = useState(0)
   const [selectedSize, setSelectedSize] = useState<string>("")
@@ -28,6 +36,58 @@ export function ProductDetail({ product }: { product: Product }) {
   const [showSizeError, setShowSizeError] = useState(false)
   const { addItem } = useCart()
   const { toast } = useToast()
+
+  // Map sizes to their stock information
+  const sizeStockMap = useMemo(() => {
+    const map = new Map<string, SizeStockInfo>()
+    
+    if (product.variants && Array.isArray(product.variants)) {
+      product.variants.forEach((variant: any) => {
+        if (!variant.attributes) return
+        
+        try {
+          const attrs = typeof variant.attributes === 'string' 
+            ? JSON.parse(variant.attributes) 
+            : variant.attributes
+          
+          if (typeof attrs === 'object' && attrs !== null) {
+            const size = attrs['Size'] || attrs['size'] || attrs['SIZE']
+            if (size) {
+              const quantity = variant.quantity || variant.Quantity || 0
+              const isOutOfStock = variant.isOutOfStock || variant.IsOutOfStock || quantity === 0
+              const isAvailable = variant.isAvailable !== undefined 
+                ? variant.isAvailable 
+                : (variant.IsAvailable !== undefined ? variant.IsAvailable : !isOutOfStock)
+              
+              map.set(size, {
+                size,
+                quantity: Number(quantity),
+                isOutOfStock,
+                isAvailable,
+                variantId: variant.id || variant.Id
+              })
+            }
+          }
+        } catch {
+          // If parsing fails, skip
+        }
+      })
+    }
+    
+    return map
+  }, [product.variants])
+
+  // Get stock info for a specific size
+  const getSizeStockInfo = (size: string): SizeStockInfo | null => {
+    return sizeStockMap.get(size) || null
+  }
+
+  // Check if size is low stock (2-3 items)
+  const isLowStock = (size: string): boolean => {
+    const stockInfo = getSizeStockInfo(size)
+    if (!stockInfo) return false
+    return stockInfo.quantity >= 2 && stockInfo.quantity <= 3 && !stockInfo.isOutOfStock
+  }
 
   // Get the current price based on selected size (variant price if available)
   // Use useMemo to ensure it updates reactively when selectedSize or variants change
@@ -110,6 +170,18 @@ export function ProductDetail({ product }: { product: Product }) {
         duration: 3000,
       })
       setTimeout(() => setShowSizeError(false), 1000)
+      return
+    }
+
+    // Check if selected size is out of stock
+    const stockInfo = getSizeStockInfo(selectedSize)
+    if (stockInfo && (stockInfo.isOutOfStock || !stockInfo.isAvailable)) {
+      toast({
+        title: "Out of Stock",
+        description: `Size ${selectedSize} is currently out of stock. Please select another size.`,
+        variant: "destructive",
+        duration: 3000,
+      })
       return
     }
 
@@ -249,36 +321,63 @@ export function ProductDetail({ product }: { product: Product }) {
               )}
             </div>
             <div
-              className={`flex flex-wrap gap-2 p-3 border-2 rounded transition-colors ${
+              className={`flex flex-wrap gap-2 gap-y-4 p-3 border-2 rounded transition-colors ${
                 showSizeError ? "border-destructive bg-destructive/5" : "border-transparent"
               }`}
             >
-              {product.sizes.map((size) => (
-                <button
-                  key={size}
-                  onClick={() => {
-                    setSelectedSize(size)
-                    setShowSizeError(false)
-                  }}
-                  className={`px-4 sm:px-6 py-2 sm:py-3 border transition-all duration-200 text-sm sm:text-base ${
-                    selectedSize === size
-                      ? "scale-105"
-                      : "bg-background text-foreground border-border hover:border-foreground hover:scale-105"
-                  }`}
-                  style={{
-                    fontFamily: '"Dream Avenue"',
-                    ...(selectedSize === size
-                      ? {
-                          backgroundColor: 'rgba(206, 180, 157, 1)',
-                          color: 'rgba(255, 255, 255, 1)',
-                          borderColor: 'rgba(206, 180, 157, 1)',
+              {product.sizes.map((size) => {
+                const stockInfo = getSizeStockInfo(size)
+                const isOutOfStock = stockInfo?.isOutOfStock || false
+                const isAvailable = stockInfo?.isAvailable !== false
+                const isLowStockSize = isLowStock(size)
+                const stockQuantity = stockInfo?.quantity || 0
+                
+                return (
+                  <div key={size} className="relative flex flex-col items-center">
+                    <button
+                      onClick={() => {
+                        if (!isOutOfStock && isAvailable) {
+                          setSelectedSize(size)
+                          setShowSizeError(false)
                         }
-                      : {}),
-                  }}
-                >
-                  {size}
-                </button>
-              ))}
+                      }}
+                      disabled={isOutOfStock || !isAvailable}
+                      className={`px-4 sm:px-6 py-2 sm:py-3 border transition-all duration-200 text-sm sm:text-base relative ${
+                        isOutOfStock || !isAvailable
+                          ? "opacity-60 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-300 line-through"
+                          : selectedSize === size
+                          ? "scale-105"
+                          : "bg-background text-foreground border-border hover:border-foreground hover:scale-105"
+                      }`}
+                      style={{
+                        fontFamily: '"Dream Avenue"',
+                        ...(selectedSize === size && !isOutOfStock && isAvailable
+                          ? {
+                              backgroundColor: 'rgba(206, 180, 157, 1)',
+                              color: 'rgba(255, 255, 255, 1)',
+                              borderColor: 'rgba(206, 180, 157, 1)',
+                            }
+                          : {}),
+                        ...(isOutOfStock || !isAvailable
+                          ? {
+                              textDecoration: 'line-through',
+                            }
+                          : {}),
+                      }}
+                      title={isOutOfStock ? "Out of Stock" : isLowStockSize ? `Hurry up! Only ${stockQuantity} ${stockQuantity === 1 ? 'item' : 'items'} available` : undefined}
+                    >
+                      <span className={isOutOfStock || !isAvailable ? "line-through" : ""}>
+                        {size}
+                      </span>
+                    </button>
+                    {isLowStockSize && !isOutOfStock && (
+                      <div className="absolute top-full mt-1 left-0 right-0 text-[10px] sm:text-xs text-orange-600 font-medium text-center whitespace-nowrap" style={{ fontFamily: '"Dream Avenue"' }}>
+                        Hurry up! Only {stockQuantity} {stockQuantity === 1 ? 'item' : 'items'} available
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
 

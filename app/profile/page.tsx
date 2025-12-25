@@ -14,17 +14,28 @@ import { useAuth } from "@/components/auth-provider"
 function ProfileContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isInitialized } = useAuth()
   const tabParam = searchParams.get("tab")
   // Default to profile, or if orders tab is requested, redirect to profile
   const defaultTab = tabParam === "orders" ? "profile" : (tabParam || "profile")
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Only redirect if auth is initialized and user is not authenticated
+    if (isInitialized && !isAuthenticated) {
       router.push("/login")
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, isInitialized, router])
 
+  // Show loading state while auth is initializing
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p style={{ fontFamily: '"Dream Avenue"' }}>Loading...</p>
+      </div>
+    )
+  }
+
+  // Show redirecting message if not authenticated (after initialization)
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -36,7 +47,7 @@ function ProfileContent() {
   return (
     <div className="min-h-screen">
       <Header />
-      <div className="container mx-auto px-4 sm:px-6 py-4">
+      <div className="container mx-auto px-4 sm:px-6 py-4 pt-32">
         <Button variant="ghost" asChild style={{ fontFamily: '"Dream Avenue"' }}>
           <Link href="/">
             <ArrowLeft className="h-4 w-4 mr-2" />

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Header } from "@/components/header"
@@ -23,17 +23,6 @@ export default function SignupPage() {
     confirmPassword: "",
   })
   const [isLoading, setIsLoading] = useState(false)
-  const [showBackButton, setShowBackButton] = useState(false)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      // Show back button when scrolled down more than 100px
-      setShowBackButton(window.scrollY > 100)
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -89,8 +78,8 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen">
       <Header />
-      <div className="container mx-auto px-4 sm:px-6 py-8 md:py-12 max-w-md pt-28">
-        {showBackButton && (
+      <div className="container mx-auto px-4 sm:px-6 py-8 md:py-12 max-w-md pt-40 mt-12">
+        <div className="mt-8">
           <Button 
             variant="ghost" 
             asChild 
@@ -98,15 +87,15 @@ export default function SignupPage() {
             style={{ fontFamily: '"Dream Avenue"' }}
           >
             <Link href="/">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="h-4 w-4 mr-2 " />
               Back to Home
             </Link>
           </Button>
-        )}
+        </div>
 
         <div className="space-y-6">
           <div>
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold mb-2" style={{ fontFamily: '"Dream Avenue"' }}>
+            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"' }}>
               Sign Up
             </h1>
             <p className="text-muted-foreground" style={{ fontFamily: '"Dream Avenue"' }}>

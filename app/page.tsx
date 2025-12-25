@@ -11,6 +11,7 @@ export default function Home() {
   const [videoError, setVideoError] = useState(false)
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [useFallback, setUseFallback] = useState(false)
+  const [isHoveringButton, setIsHoveringButton] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      <Header />
+      <Header hideOnButtonHover={isHoveringButton} />
 
       <section id="hero-video-section" className="relative h-[70vh] sm:h-[80vh] flex items-center justify-center overflow-hidden pt-16">
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
@@ -107,14 +108,25 @@ export default function Home() {
           <p className="text-lg sm:text-xl md:text-2xl text-white/90 max-w-2xl mx-auto mb-8" style={{ fontFamily: '"Dream Avenue"' }}>
             Discover timeless pieces crafted for the modern wardrobe
           </p>
-          <Button asChild size="lg" className="bg-foreground text-background hover:bg-foreground/90 h-12 px-8 text-base" style={{ backgroundColor: 'rgba(206, 180, 157, 1)', fontFamily: '"Dream Avenue"' }}>
-            <Link href="/shop">Explore Collection</Link>
-          </Button>
+          <div
+            onMouseEnter={() => setIsHoveringButton(true)}
+            onMouseLeave={() => setIsHoveringButton(false)}
+            className="inline-block"
+          >
+            <Button 
+              asChild 
+              size="lg" 
+              className="bg-foreground text-background hover:bg-foreground/90 h-12 px-8 text-base" 
+              style={{ backgroundColor: 'rgba(206, 180, 157, 1)', fontFamily: '"Dream Avenue"' }}
+            >
+              <Link href="/shop">Explore Collection</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* New Arrivals Section */}
-      <section className="container mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-24">
+      <section className="container mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-24 pt-32">
         <div className="flex items-end justify-between mb-8 sm:mb-12">
           <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold" style={{ fontFamily: '"Dream Avenue"' }}>New Arrivals</h2>
           <Link href="/new" className="text-sm font-medium hover:text-muted-foreground transition-colors" style={{ fontFamily: '"Dream Avenue"' }}>

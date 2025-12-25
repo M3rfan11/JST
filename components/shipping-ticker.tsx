@@ -28,7 +28,7 @@ export function ShippingTicker() {
   }
 
   return (
-    <div className="sticky top-0 z-50 bg-foreground text-background py-1.5 overflow-hidden" style={{ backgroundColor: 'rgba(61, 8, 17, 1)' }}>
+    <div className="fixed top-0 left-0 right-0 z-50 bg-foreground text-background py-1.5 overflow-hidden" style={{ backgroundColor: 'rgba(61, 8, 17, 1)' }}>
       <div className="flex gap-8">
         {/* First set for infinite scroll */}
         <div className="flex items-center gap-8 whitespace-nowrap animate-marquee-infinite">

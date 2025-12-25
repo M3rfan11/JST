@@ -180,8 +180,8 @@ export default function CollectionsPage() {
       </section>
 
       {/* Featured Section */}
-      <section className="py-12 sm:py-16 md:py-24" style={{ backgroundColor: '#3D0811' }}>
-        <div className="container mx-auto px-4 sm:px-6">
+      <section className="pt-6 sm:pt-8 md:pt-12 pb-0 min-h-[60vh] flex items-center" style={{ backgroundColor: '#3D0811' }}>
+        <div className="container mx-auto px-4 sm:px-6 w-full">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold mb-6 text-white" style={{ fontFamily: '"Dream Avenue"' }}>Crafted for Excellence</h2>
             <p className="mb-8 text-base sm:text-lg leading-relaxed text-white" style={{ fontFamily: '"Dream Avenue"' }}>
@@ -189,9 +189,6 @@ export default function CollectionsPage() {
               quality and attention to detail that defines JST. From boardroom to ballroom, we have the perfect
               piece for every occasion.
             </p>
-            <Button asChild size="lg" variant="outline" className="h-12 px-8 bg-transparent border-white text-white hover:bg-white/10" style={{ fontFamily: '"Dream Avenue"' }}>
-              <Link href="/shop" className="text-white">Browse All Products</Link>
-            </Button>
           </div>
         </div>
       </section>

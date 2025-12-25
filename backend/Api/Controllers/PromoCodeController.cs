@@ -307,7 +307,7 @@ public class PromoCodeController : ControllerBase
 
                     // Automatically send email notifications to all assigned registered users (batch processing)
                     var emailRecipients = promoCodeUsers
-                        .Select(pcu =>
+                        .Select<PromoCodeUser, (string Email, string Name, PromoCodeUser PromoCodeUser)?>(pcu =>
                         {
                             var user = users.FirstOrDefault(u => u.Id == pcu.UserId);
                             return user != null && !string.IsNullOrEmpty(user.Email) 
@@ -319,7 +319,7 @@ public class PromoCodeController : ControllerBase
 
                     if (emailRecipients.Any())
                     {
-                        var recipients = emailRecipients.Select(r => (r.Email, r.Name)).ToList();
+                        var recipients = emailRecipients.Where(r => r != null).Select(r => (r!.Value.Email, r!.Value.Name)).ToList();
                         var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
                             recipients,
                             promoCode.Code,
@@ -329,12 +329,13 @@ public class PromoCodeController : ControllerBase
                         );
 
                         // Update notification status based on results
-                        foreach (var recipient in emailRecipients)
+                        foreach (var recipient in emailRecipients.Where(r => r != null))
                         {
-                            if (emailResults.TryGetValue(recipient.Email, out var success) && success)
+                            var r = recipient!.Value;
+                            if (emailResults.TryGetValue(r.Email, out var success) && success)
                             {
-                                recipient.PromoCodeUser.IsNotified = true;
-                                recipient.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
+                                r.PromoCodeUser.IsNotified = true;
+                                r.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
                             }
                         }
                         await _context.SaveChangesAsync();
@@ -395,7 +396,7 @@ public class PromoCodeController : ControllerBase
                     {
                         // Non-registered email - queue notification if enabled
                         // Note: The email already includes a note that registration is required to use the code
-                        if (request.SendEmailNotification ?? true)
+                        if (request.SendEmailNotification)
                         {
                             emailRecipientsToNotify.Add((trimmedEmail, "Valued Customer", null));
                         }
@@ -608,7 +609,7 @@ public class PromoCodeController : ControllerBase
                     // Automatically send email notifications to newly added users (batch processing)
                     var newlyAddedUsers = promoCodeUsers.Where(pcu => !existingUserIds.Contains(pcu.UserId)).ToList();
                     var emailRecipients = newlyAddedUsers
-                        .Select(pcu =>
+                        .Select<PromoCodeUser, (string Email, string Name, PromoCodeUser PromoCodeUser)?>(pcu =>
                         {
                             var user = users.FirstOrDefault(u => u.Id == pcu.UserId);
                             return user != null && !string.IsNullOrEmpty(user.Email)
@@ -620,7 +621,7 @@ public class PromoCodeController : ControllerBase
 
                     if (emailRecipients.Any())
                     {
-                        var recipients = emailRecipients.Select(r => (r.Email, r.Name)).ToList();
+                        var recipients = emailRecipients.Where(r => r != null).Select(r => (r!.Value.Email, r!.Value.Name)).ToList();
                         var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
                             recipients,
                             promoCode.Code,
@@ -630,12 +631,13 @@ public class PromoCodeController : ControllerBase
                         );
 
                         // Update notification status based on results
-                        foreach (var recipient in emailRecipients)
+                        foreach (var recipient in emailRecipients.Where(r => r != null))
                         {
-                            if (emailResults.TryGetValue(recipient.Email, out var success) && success)
+                            var r = recipient!.Value;
+                            if (emailResults.TryGetValue(r.Email, out var success) && success)
                             {
-                                recipient.PromoCodeUser.IsNotified = true;
-                                recipient.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
+                                r.PromoCodeUser.IsNotified = true;
+                                r.PromoCodeUser.NotifiedAt = DateTime.UtcNow;
                             }
                         }
                         await _context.SaveChangesAsync();

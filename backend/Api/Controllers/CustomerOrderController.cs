@@ -16,12 +16,14 @@ public class CustomerOrderController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IAuditService _auditService;
+    private readonly IEmailService _emailService;
     private readonly ILogger<CustomerOrderController> _logger;
 
-    public CustomerOrderController(ApplicationDbContext context, IAuditService auditService, ILogger<CustomerOrderController> logger)
+    public CustomerOrderController(ApplicationDbContext context, IAuditService auditService, IEmailService emailService, ILogger<CustomerOrderController> logger)
     {
         _context = context;
         _auditService = auditService;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -190,7 +192,18 @@ public class CustomerOrderController : ControllerBase
             {
                 if (availableQuantity < request.Quantity)
                 {
-                    return BadRequest($"Insufficient stock. Available: {availableQuantity}");
+                    var productName = product.Name ?? "this product";
+                    var requestedQty = request.Quantity;
+                    var availableQty = Math.Max(0, (int)availableQuantity);
+                    
+                    if (availableQty == 0)
+                    {
+                        return BadRequest($"Sorry, \"{productName}\" is currently out of stock. Please check back later.");
+                    }
+                    else
+                    {
+                        return BadRequest($"Sorry, we only have {availableQty} {((int)availableQty == 1 ? "item" : "items")} available for \"{productName}\". You requested {requestedQty}. Please adjust the quantity.");
+                    }
                 }
             }
 
@@ -316,7 +329,18 @@ public class CustomerOrderController : ControllerBase
             {
                 if (availableQuantity < request.Quantity)
                 {
-                    return BadRequest($"Insufficient stock. Available: {availableQuantity}");
+                    var productName = product.Name ?? "this product";
+                    var requestedQty = request.Quantity;
+                    var availableQty = Math.Max(0, (int)availableQuantity);
+                    
+                    if (availableQty == 0)
+                    {
+                        return BadRequest($"Sorry, \"{productName}\" is currently out of stock. Please remove it from your cart or check back later.");
+                    }
+                    else
+                    {
+                        return BadRequest($"Sorry, we only have {availableQty} {((int)availableQty == 1 ? "item" : "items")} available for \"{productName}\". You requested {requestedQty}. Please adjust the quantity in your cart.");
+                    }
                 }
             }
 
@@ -464,7 +488,45 @@ public class CustomerOrderController : ControllerBase
 
                     if (variantInventory < item.Quantity)
                     {
-                        return BadRequest($"Insufficient stock for variant ID {item.VariantId.Value}. Available: {variantInventory}");
+                        // Get variant details for better error message
+                        var variant = await _context.ProductVariants
+                            .FirstOrDefaultAsync(v => v.Id == item.VariantId.Value);
+                        
+                        var productName = product.Name ?? "this product";
+                        var variantInfo = "";
+                        if (variant != null)
+                        {
+                            // Try to parse attributes to get size/color info
+                            if (!string.IsNullOrEmpty(variant.Attributes))
+                            {
+                                try
+                                {
+                                    var attributes = JsonSerializer.Deserialize<Dictionary<string, object>>(variant.Attributes);
+                                    if (attributes != null && attributes.ContainsKey("Size"))
+                                    {
+                                        variantInfo = $" (Size: {attributes["Size"]})";
+                                    }
+                                }
+                                catch { }
+                            }
+                            // Fallback to Color if no size in attributes
+                            if (string.IsNullOrEmpty(variantInfo) && !string.IsNullOrEmpty(variant.Color))
+                            {
+                                variantInfo = $" ({variant.Color})";
+                            }
+                        }
+                        
+                        var requestedQty = item.Quantity;
+                        var availableQty = Math.Max(0, (int)variantInventory);
+                        
+                        if (availableQty == 0)
+                        {
+                            return BadRequest($"Sorry, \"{productName}{variantInfo}\" is currently out of stock. Please remove it from your cart or check back later.");
+                        }
+                        else
+                        {
+                            return BadRequest($"Sorry, we only have {availableQty} {((int)availableQty == 1 ? "item" : "items")} available for \"{productName}{variantInfo}\". You requested {requestedQty}. Please adjust the quantity in your cart.");
+                        }
                     }
                 }
                 else
@@ -476,7 +538,18 @@ public class CustomerOrderController : ControllerBase
 
                     if (availableQuantity < item.Quantity)
                     {
-                        return BadRequest($"Insufficient stock for product ID {item.ProductId}. Available: {availableQuantity}");
+                        var productName = product.Name ?? "this product";
+                        var requestedQty = item.Quantity;
+                        var availableQty = Math.Max(0, (int)availableQuantity);
+                        
+                        if (availableQty == 0)
+                        {
+                            return BadRequest($"Sorry, \"{productName}\" is currently out of stock. Please remove it from your cart or check back later.");
+                        }
+                        else
+                        {
+                            return BadRequest($"Sorry, we only have {availableQty} {((int)availableQty == 1 ? "item" : "items")} available for \"{productName}\". You requested {requestedQty}. Please adjust the quantity in your cart.");
+                        }
                     }
                 }
             }
@@ -727,6 +800,106 @@ public class CustomerOrderController : ControllerBase
 
             await _context.SaveChangesAsync();
 
+            // Send order confirmation email
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(order.CustomerEmail))
+                {
+                    _logger.LogInformation("Preparing to send order confirmation email for order {OrderNumber} to {Email}", orderNumber, order.CustomerEmail);
+                    
+                    // Fetch order items with product names
+                    var orderItemsWithProducts = await _context.SalesItems
+                        .Where(si => si.SalesOrderId == order.Id)
+                        .Include(si => si.Product)
+                        .Include(si => si.ProductVariant)
+                        .ToListAsync();
+
+                    var emailItems = orderItemsWithProducts.Select(item =>
+                    {
+                        var productName = item.Product?.Name ?? "Unknown Product";
+                        string? size = null;
+                        
+                        // Try to get size from variant attributes
+                        if (item.ProductVariant?.Attributes != null)
+                        {
+                            try
+                            {
+                                var attrs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(item.ProductVariant.Attributes);
+                                if (attrs != null && attrs.ContainsKey("Size"))
+                                {
+                                    size = attrs["Size"]?.ToString();
+                                }
+                            }
+                            catch
+                            {
+                                // If parsing fails, continue without size
+                            }
+                        }
+
+                        return (
+                            ProductName: productName,
+                            Size: size,
+                            Quantity: item.Quantity,
+                            UnitPrice: item.UnitPrice,
+                            TotalPrice: item.TotalPrice
+                        );
+                    }).ToList();
+
+                    // Calculate shipping (120 EGP if subtotal < 3000, otherwise free)
+                    var subtotalAfterDiscountForEmail = orderAmount - discountAmount;
+                    var emailShippingCost = subtotalAfterDiscountForEmail >= 3000 ? 0 : 120;
+                    var finalTotal = totalAmount + emailShippingCost;
+
+                    _logger.LogInformation("Sending order confirmation email for order {OrderNumber} with {ItemCount} items, total: {Total} EGP", 
+                        orderNumber, emailItems.Count, finalTotal);
+
+                    // Send email asynchronously (don't wait for it to complete)
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var emailSent = await _emailService.SendOrderConfirmationAsync(
+                                toEmail: order.CustomerEmail,
+                                toName: order.CustomerName,
+                                orderNumber: orderNumber,
+                                orderDate: order.OrderDate,
+                                items: emailItems,
+                                subtotal: orderAmount,
+                                discount: discountAmount,
+                                shipping: emailShippingCost,
+                                total: finalTotal,
+                                paymentMethod: order.PaymentMethod ?? "Cash on Delivery",
+                                shippingAddress: order.CustomerAddress
+                            );
+                            
+                            if (emailSent)
+                            {
+                                _logger.LogInformation("✅ Order confirmation email sent successfully for order {OrderNumber} to {Email}", orderNumber, order.CustomerEmail);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("⚠️ Order confirmation email was NOT sent for order {OrderNumber} to {Email}. Check email configuration.", orderNumber, order.CustomerEmail);
+                            }
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _logger.LogError(emailEx, "❌ Failed to send order confirmation email for order {OrderNumber} to {Email}. Error: {Message}", 
+                                orderNumber, order.CustomerEmail, emailEx.Message);
+                        }
+                    });
+                }
+                else
+                {
+                    _logger.LogWarning("Cannot send order confirmation email for order {OrderNumber}: CustomerEmail is empty", orderNumber);
+                }
+            }
+            catch (Exception emailEx)
+            {
+                _logger.LogError(emailEx, "Error preparing order confirmation email for order {OrderNumber}. Error: {Message}", 
+                    orderNumber, emailEx.Message);
+                // Don't fail the order creation if email fails
+            }
+
             // Return guest order response
             return Ok(new GuestOrderResponse
             {
@@ -877,8 +1050,12 @@ public class CustomerOrderController : ControllerBase
 
                 // Check variant inventory if variantId is provided
                 decimal availableQuantity = 0;
+                ProductVariant? variant = null;
                 if (item.VariantId.HasValue)
                 {
+                    variant = await _context.ProductVariants
+                        .FirstOrDefaultAsync(v => v.Id == item.VariantId.Value);
+                    
                     availableQuantity = await _context.VariantInventories
                         .Where(vi => vi.ProductVariantId == item.VariantId.Value && vi.WarehouseId == onlineWarehouse.Id)
                         .SumAsync(vi => vi.Quantity);
@@ -892,14 +1069,50 @@ public class CustomerOrderController : ControllerBase
 
                 if (availableQuantity < item.Quantity)
                 {
-                    return BadRequest($"Insufficient stock for product ID {item.ProductId}. Available: {availableQuantity}");
+                    var productName = product.Name ?? "this product";
+                    var variantInfo = "";
+                    
+                    // Add variant info if available
+                    if (variant != null)
+                    {
+                        // Try to parse attributes to get size/color info
+                        if (!string.IsNullOrEmpty(variant.Attributes))
+                        {
+                            try
+                            {
+                                var attributes = JsonSerializer.Deserialize<Dictionary<string, object>>(variant.Attributes);
+                                if (attributes != null && attributes.ContainsKey("Size"))
+                                {
+                                    variantInfo = $" (Size: {attributes["Size"]})";
+                                }
+                            }
+                            catch { }
+                        }
+                        // Fallback to Color if no size in attributes
+                        if (string.IsNullOrEmpty(variantInfo) && !string.IsNullOrEmpty(variant.Color))
+                        {
+                            variantInfo = $" ({variant.Color})";
+                        }
+                    }
+                    
+                    var requestedQty = item.Quantity;
+                    var availableQty = Math.Max(0, (int)availableQuantity);
+                    
+                    if (availableQty == 0)
+                    {
+                        return BadRequest($"Sorry, \"{productName}{variantInfo}\" is currently out of stock. Please remove it from your cart or check back later.");
+                    }
+                    else
+                    {
+                        return BadRequest($"Sorry, we only have {availableQty} {((int)availableQty == 1 ? "item" : "items")} available for \"{productName}{variantInfo}\". You requested {requestedQty}. Please adjust the quantity in your cart.");
+                    }
                 }
             }
 
             // Calculate subtotal and apply promo code if provided
             var subtotal = orderItems.Sum(item => item.Quantity * item.UnitPrice);
-            var shippingCost = 0m; // Can be added to request if needed
-            var orderAmount = subtotal + shippingCost;
+            // Shipping is calculated later (120 EGP if subtotal < 3000, otherwise free)
+            var orderAmount = subtotal; // Subtotal before shipping
             
             decimal discountAmount = 0;
             PromoCode? appliedPromoCode = null;
@@ -1103,6 +1316,99 @@ public class CustomerOrderController : ControllerBase
             }
 
             await _context.SaveChangesAsync();
+
+            // Send order confirmation email
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(order.CustomerEmail))
+                {
+                    // Fetch order items with product names
+                    var orderItemsWithProducts = await _context.SalesItems
+                        .Where(si => si.SalesOrderId == order.Id)
+                        .Include(si => si.Product)
+                        .Include(si => si.ProductVariant)
+                        .ToListAsync();
+
+                    var emailItems = orderItemsWithProducts.Select(item =>
+                    {
+                        var productName = item.Product?.Name ?? "Unknown Product";
+                        string? size = null;
+                        
+                        // Try to get size from variant attributes
+                        if (item.ProductVariant?.Attributes != null)
+                        {
+                            try
+                            {
+                                var attrs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(item.ProductVariant.Attributes);
+                                if (attrs != null && attrs.ContainsKey("Size"))
+                                {
+                                    size = attrs["Size"]?.ToString();
+                                }
+                            }
+                            catch
+                            {
+                                // If parsing fails, continue without size
+                            }
+                        }
+
+                        return (
+                            ProductName: productName,
+                            Size: size,
+                            Quantity: item.Quantity,
+                            UnitPrice: item.UnitPrice,
+                            TotalPrice: item.TotalPrice
+                        );
+                    }).ToList();
+
+                    // Calculate shipping (120 EGP if subtotal after discount < 3000, otherwise free)
+                    var subtotalAfterDiscount = orderAmount - discountAmount;
+                    var shippingCost = subtotalAfterDiscount >= 3000 ? 0 : 120;
+                    var finalTotal = totalAmount + shippingCost;
+
+                    _logger.LogInformation("Sending order confirmation email for order {OrderNumber} with {ItemCount} items, total: {Total} EGP", 
+                        orderNumber, emailItems.Count, finalTotal);
+
+                    // Send email asynchronously (don't wait for it to complete)
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var emailSent = await _emailService.SendOrderConfirmationAsync(
+                                toEmail: order.CustomerEmail,
+                                toName: order.CustomerName,
+                                orderNumber: orderNumber,
+                                orderDate: order.OrderDate,
+                                items: emailItems,
+                                subtotal: orderAmount,
+                                discount: discountAmount,
+                                shipping: shippingCost,
+                                total: finalTotal,
+                                paymentMethod: order.PaymentMethod ?? "Cash on Delivery",
+                                shippingAddress: order.CustomerAddress
+                            );
+                            
+                            if (emailSent)
+                            {
+                                _logger.LogInformation("✅ Order confirmation email sent successfully for order {OrderNumber} to {Email}", orderNumber, order.CustomerEmail);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("⚠️ Order confirmation email was NOT sent for order {OrderNumber} to {Email}. Check email configuration.", orderNumber, order.CustomerEmail);
+                            }
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _logger.LogError(emailEx, "❌ Failed to send order confirmation email for order {OrderNumber} to {Email}. Error: {Message}", 
+                                orderNumber, order.CustomerEmail, emailEx.Message);
+                        }
+                    });
+                }
+            }
+            catch (Exception emailEx)
+            {
+                _logger.LogError(emailEx, "Error preparing order confirmation email for order {OrderNumber}", orderNumber);
+                // Don't fail the order creation if email fails
+            }
 
             // Audit log
             await _auditService.LogAsync("CustomerOrder", order.Id.ToString(), "CREATE", 

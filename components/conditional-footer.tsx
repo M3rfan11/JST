@@ -11,7 +11,10 @@ export function ConditionalFooter() {
     return null
   }
   
-  return <Footer />
+  // Remove top margin on collections page (section has dark background that should connect to footer)
+  const noTopMargin = pathname === "/collections"
+  
+  return <Footer noTopMargin={noTopMargin} />
 }
 
 
