@@ -35,9 +35,9 @@ class ApiClient {
     }
 
     // Set default headers
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...fetchOptions.headers,
+      ...(fetchOptions.headers as Record<string, string>),
     }
 
     // Add auth token if available
@@ -174,12 +174,14 @@ export const api = {
     signup: (data: unknown) => apiClient.post('/api/auth/register', data),
     logout: () => apiClient.post('/api/auth/logout'),
     me: () => apiClient.get('/api/auth/me'),
+    changePassword: (data: unknown) => apiClient.post('/api/userprofile/change-password', data),
   },
 
   // Users
   users: {
-    getProfile: () => apiClient.get('/api/users/profile'),
-    updateProfile: (data: unknown) => apiClient.put('/api/users/profile', data),
+    getProfile: () => apiClient.get('/api/userprofile/profile'),
+    updateProfile: (data: unknown) => apiClient.patch('/api/userprofile/profile', data),
+    deleteAccount: () => apiClient.delete('/api/userprofile/account'),
     getAddresses: () => apiClient.get('/api/users/addresses'),
     addAddress: (data: unknown) => apiClient.post('/api/users/addresses', data),
     updateAddress: (id: string, data: unknown) =>
@@ -219,9 +221,10 @@ export const api = {
 
   // Admin
   admin: {
-    getUsers: () => apiClient.get('/api/admin/users'),
-    updateUser: (id: number, data: unknown) => apiClient.put(`/api/admin/users/${id}`, data),
-    deleteUser: (id: number) => apiClient.delete(`/api/admin/users/${id}`),
+    getUsers: () => apiClient.get('/api/users'),
+    updateUser: (id: number, data: unknown) => apiClient.patch(`/api/users/${id}`, data),
+    deleteUser: (id: number) => apiClient.delete(`/api/users/${id}`),
+    getRoles: () => apiClient.get('/api/roles'),
   },
 
   // Categories

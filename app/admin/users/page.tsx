@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Edit, Trash2 } from "lucide-react"
+import { Search, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api } from "@/lib/api-client"
@@ -20,20 +20,81 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
 
+  const [roles, setRoles] = useState<any[]>([])
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [saveLoading, setSaveLoading] = useState(false)
+  
+  // Edit form state
+  const [editFormData, setEditFormData] = useState({
+    fullName: "",
+    email: "",
+    isActive: false,
+    roles: [] as string[]
+  })
+
   useEffect(() => {
     loadUsers()
+    loadRoles()
   }, [])
+
+  const loadRoles = async () => {
+    try {
+      const data: any = await api.admin.getRoles()
+      setRoles(data)
+    } catch (error) {
+      console.error("Error loading roles:", error)
+    }
+  }
 
   const loadUsers = async () => {
     try {
       setLoading(true)
-      const data = await api.admin.getUsers()
+      const data = await api.admin.getUsers() as User[]
       setUsers(data)
     } catch (error) {
       console.error("Error loading users:", error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleEditClick = (user: User) => {
+    setEditingUser(user)
+    setEditFormData({
+      fullName: user.fullName,
+      email: user.email,
+      isActive: user.isActive,
+      roles: [...user.roles]
+    })
+    setShowEditModal(true)
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingUser) return
+
+    try {
+      setSaveLoading(true)
+      await api.admin.updateUser(editingUser.id, editFormData)
+      setShowEditModal(false)
+      setEditingUser(null)
+      loadUsers() // Reload list
+    } catch (error) {
+      console.error("Error updating user:", error)
+      alert("Failed to update user")
+    } finally {
+      setSaveLoading(false)
+    }
+  }
+
+  const toggleRole = (roleName: string) => {
+    setEditFormData(prev => {
+      const newRoles = prev.roles.includes(roleName)
+        ? prev.roles.filter(r => r !== roleName)
+        : [...prev.roles, roleName]
+      return { ...prev, roles: newRoles }
+    })
   }
 
   const filteredUsers = users.filter(
@@ -51,7 +112,75 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+            <h2 className="text-2xl font-semibold mb-4" style={{ fontFamily: '"Dream Avenue"' }}>Edit User</h2>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Full Name</label>
+                <Input 
+                  value={editFormData.fullName}
+                  onChange={e => setEditFormData({...editFormData, fullName: e.target.value})}
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <Input 
+                  type="email"
+                  value={editFormData.email}
+                  onChange={e => setEditFormData({...editFormData, email: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="checkbox"
+                    id="isActive"
+                    checked={editFormData.isActive}
+                    onChange={e => setEditFormData({...editFormData, isActive: e.target.checked})}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <label htmlFor="isActive">Active</label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Roles</label>
+                <div className="space-y-2 border p-3 rounded-md">
+                  {roles.map(role => (
+                    <div key={role.id} className="flex items-center gap-2">
+                       <input 
+                        type="checkbox"
+                        id={`role-${role.id}`}
+                        checked={editFormData.roles.includes(role.name)}
+                        onChange={() => toggleRole(role.name)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <label htmlFor={`role-${role.id}`}>{role.name}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="ghost" onClick={() => setShowEditModal(false)}>Cancel</Button>
+                <Button type="submit" disabled={saveLoading} style={{ backgroundColor: '#3D0811' }}>
+                  {saveLoading ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div>
         <h1 className="text-3xl font-semibold mb-2" style={{ fontFamily: '"Dream Avenue"', color: '#3D0811' }}>
           Users & Roles
@@ -143,18 +272,8 @@ export default function UsersPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleEditClick(user)}>
                           <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            // TODO: Implement delete
-                            console.log("Delete user", user.id)
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
                     </td>
