@@ -481,8 +481,8 @@ export default function EditPromoCodePage() {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {customers.map((customer) => (
-                      <div key={customer.id} className="flex items-center space-x-3">
+                    {customers.map((customer, index) => (
+                      <div key={`${customer.id}-${index}`} className="flex items-center space-x-3">
                         <input
                           type="checkbox"
                           id={`customer-${customer.id}`}
