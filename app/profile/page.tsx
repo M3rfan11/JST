@@ -48,7 +48,7 @@ function ProfileContent() {
         <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold mb-8 sm:mb-10" style={{ fontFamily: '"Dream Avenue"' }}>My Account</h1>
 
         <Tabs defaultValue={defaultTab} className="space-y-8 sm:space-y-10">
-          <TabsList className="grid w-full grid-cols-2 h-12 sm:h-14" style={{ backgroundColor: '#3D0811' }}>
+          <TabsList className="grid w-full h-12 sm:h-14" style={{ backgroundColor: '#3D0811' }}>
             <TabsTrigger 
               value="profile" 
               className="text-base sm:text-lg font-medium data-[state=active]:bg-white data-[state=active]:text-[#3D0811] text-white" 
@@ -56,21 +56,10 @@ function ProfileContent() {
             >
               Profile
             </TabsTrigger>
-            <TabsTrigger 
-              value="addresses" 
-              className="text-base sm:text-lg font-medium data-[state=active]:bg-white data-[state=active]:text-[#3D0811] text-white" 
-              style={{ fontFamily: '"Dream Avenue"' }}
-            >
-              Addresses
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile">
             <ProfileSettings />
-          </TabsContent>
-
-          <TabsContent value="addresses">
-            <SavedAddresses />
           </TabsContent>
         </Tabs>
       </div>
