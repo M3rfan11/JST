@@ -66,21 +66,6 @@ export function Footer({ noTopMargin = false }: FooterProps = {}) {
               </li>
             </ul>
           </div>
-          <div>
-            <h4 className="font-medium mb-4" style={{ fontFamily: '"Dream Avenue"' }}>Legal</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground" style={{ color: 'rgba(255, 255, 255, 1)' }}>
-              <li>
-                <Link href="/privacy" className="hover:underline" style={{ color: 'rgba(255, 255, 255, 1)', fontFamily: '"Dream Avenue"' }}>
-                  Privacy
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="hover:underline" style={{ color: 'rgba(255, 255, 255, 1)', fontFamily: '"Dream Avenue"' }}>
-                  Terms
-                </Link>
-              </li>
-            </ul>
-          </div>
         </div>
         <div className="border-t border-border mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-xs sm:text-sm text-muted-foreground">
           <p style={{ color: 'rgba(255, 255, 255, 1)', fontFamily: '"Dream Avenue"' }}>

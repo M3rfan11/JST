@@ -436,7 +436,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         console.error("Error removing item from cart:", error)
         
         // Fallback to local removal
-        setItems((prev) => prev.filter((i) => !(i.id === id && i.size === size)))
+        setItems((prev) => prev.filter((i) => {
+          // If we have cartItemId, use it for precise removal
+          if (itemToRemove.cartItemId && i.cartItemId) {
+            return i.cartItemId !== itemToRemove.cartItemId
+          }
+          // Otherwise fall back to id + size check
+          return !(i.id === id && i.size === size)
+        }))
         
         toast({
           title: "Item removed (local)",

@@ -10,7 +10,7 @@ import { Label } from "./ui/label";
 import { useCart } from "./cart-provider";
 import { useAuth } from "./auth-provider";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { api } from "@/lib/api-client";
 
 interface CheckoutFormProps {
@@ -438,95 +438,8 @@ export function CheckoutForm({ total }: CheckoutFormProps) {
             >
               <option value="Cash on Delivery">Cash on Delivery</option>
               <option value="InstaPay">InstaPay</option>
-              <option value="Credit Card">Credit Card</option>
-              <option value="Bank Transfer">Bank Transfer</option>
             </select>
           </div>
-
-          {formData.paymentMethod === "Credit Card" && (
-            <>
-              <div>
-                <Label
-                  htmlFor="cardNumber"
-                  className="text-sm"
-                  style={{ fontFamily: '"Dream Avenue"' }}
-                >
-                  Card Number
-                </Label>
-                <div className="relative mt-1.5">
-                  <Input
-                    id="cardNumber"
-                    name="cardNumber"
-                    required
-                    value={formData.cardNumber}
-                    onChange={handleChange}
-                    placeholder="1234 5678 9012 3456"
-                    maxLength={19}
-                  />
-                  <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                </div>
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="cardName"
-                  className="text-sm"
-                  style={{ fontFamily: '"Dream Avenue"' }}
-                >
-                  Name on Card
-                </Label>
-                <Input
-                  id="cardName"
-                  name="cardName"
-                  required={formData.paymentMethod === "Credit Card"}
-                  value={formData.cardName}
-                  onChange={handleChange}
-                  className="mt-1.5"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <div>
-                  <Label
-                    htmlFor="expiryDate"
-                    className="text-sm"
-                    style={{ fontFamily: '"Dream Avenue"' }}
-                  >
-                    Expiry Date
-                  </Label>
-                  <Input
-                    id="expiryDate"
-                    name="expiryDate"
-                    required={formData.paymentMethod === "Credit Card"}
-                    value={formData.expiryDate}
-                    onChange={handleChange}
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    className="mt-1.5"
-                  />
-                </div>
-                <div>
-                  <Label
-                    htmlFor="cvv"
-                    className="text-sm"
-                    style={{ fontFamily: '"Dream Avenue"' }}
-                  >
-                    CVV
-                  </Label>
-                  <Input
-                    id="cvv"
-                    name="cvv"
-                    required={formData.paymentMethod === "Credit Card"}
-                    value={formData.cvv}
-                    onChange={handleChange}
-                    placeholder="123"
-                    maxLength={4}
-                    className="mt-1.5"
-                  />
-                </div>
-              </div>
-            </>
-          )}
         </div>
       </div>
 

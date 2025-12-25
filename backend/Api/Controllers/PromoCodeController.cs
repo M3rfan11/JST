@@ -58,7 +58,7 @@ public class PromoCodeController : ControllerBase
             {
                 var now = DateTime.UtcNow;
                 var isExpired = pc.EndDate.HasValue && pc.EndDate.Value < now;
-                var isValid = pc.IsActive && !isExpired && 
+                var isValid = pc.IsActive && !isExpired &&
                               (pc.UsageLimit == null || pc.UsedCount < pc.UsageLimit.Value);
 
                 return new PromoCodeListResponse
@@ -117,7 +117,7 @@ public class PromoCodeController : ControllerBase
 
             var now = DateTime.UtcNow;
             var isExpired = promoCode.EndDate.HasValue && promoCode.EndDate.Value < now;
-            var isValid = promoCode.IsActive && !isExpired && 
+            var isValid = promoCode.IsActive && !isExpired &&
                           (promoCode.UsageLimit == null || promoCode.UsedCount < promoCode.UsageLimit.Value);
 
             // Get usage per user
@@ -132,7 +132,7 @@ public class PromoCodeController : ControllerBase
                         .ToList();
 
                     var usageCount = userUsageRecords.Count;
-                    var hasExceededLimit = promoCode.UsageLimitPerUser.HasValue && 
+                    var hasExceededLimit = promoCode.UsageLimitPerUser.HasValue &&
                                           usageCount >= promoCode.UsageLimitPerUser.Value;
 
                     userUsages.Add(new UserUsageInfo
@@ -166,7 +166,7 @@ public class PromoCodeController : ControllerBase
                     var user = userId.HasValue ? await _context.Users.FindAsync(userId.Value) : null;
                     var userUsageRecords = usageGroup.OrderByDescending(pcu => pcu.UsedAt).ToList();
                     var usageCount = userUsageRecords.Count;
-                    var hasExceededLimit = promoCode.UsageLimitPerUser.HasValue && 
+                    var hasExceededLimit = promoCode.UsageLimitPerUser.HasValue &&
                                           usageCount >= promoCode.UsageLimitPerUser.Value;
 
                     userUsages.Add(new UserUsageInfo
@@ -237,7 +237,7 @@ public class PromoCodeController : ControllerBase
             // Validate code uniqueness
             var existingCode = await _context.PromoCodes
                 .FirstOrDefaultAsync(pc => pc.Code.ToUpper() == request.Code.ToUpper());
-            
+
             if (existingCode != null)
             {
                 return BadRequest(new { message = $"A promo code with code '{request.Code}' already exists" });
@@ -287,7 +287,7 @@ public class PromoCodeController : ControllerBase
             {
                 // Filter out any invalid user IDs (0 or negative)
                 var validUserIds = request.UserIds.Where(id => id > 0).ToList();
-                
+
                 if (validUserIds.Any())
                 {
                     var users = await _context.Users
@@ -310,11 +310,12 @@ public class PromoCodeController : ControllerBase
                         .Select<PromoCodeUser, (string Email, string Name, PromoCodeUser PromoCodeUser)?>(pcu =>
                         {
                             var user = users.FirstOrDefault(u => u.Id == pcu.UserId);
-                            return user != null && !string.IsNullOrEmpty(user.Email) 
-                                ? (Email: user.Email, Name: user.FullName, PromoCodeUser: pcu) 
-                                : null;
+                            return user != null && !string.IsNullOrEmpty(user.Email)
+                                ? (Email: user.Email, Name: user.FullName, PromoCodeUser: pcu)
+                                : ((string Email, string Name, PromoCodeUser PromoCodeUser)?)null;
                         })
                         .Where(r => r != null)
+                        .Select(r => r!.Value)
                         .ToList();
 
                     if (emailRecipients.Any())
@@ -348,20 +349,20 @@ public class PromoCodeController : ControllerBase
             {
                 var processedEmails = new HashSet<string>();
                 var emailRecipientsToNotify = new List<(string Email, string Name, PromoCodeUser? PromoCodeUser)>();
-                
+
                 foreach (var emailAddress in request.EmailAddresses)
                 {
                     if (string.IsNullOrWhiteSpace(emailAddress)) continue;
-                    
+
                     var trimmedEmail = emailAddress.Trim();
-                    
+
                     // Validate email format using MailAddress
                     if (!IsValidEmail(trimmedEmail))
                     {
                         _logger.LogWarning("Invalid email address format: {Email}", trimmedEmail);
                         continue;
                     }
-                    
+
                     var normalizedEmail = trimmedEmail.ToLower();
                     if (processedEmails.Contains(normalizedEmail)) continue;
                     processedEmails.Add(normalizedEmail);
@@ -369,13 +370,13 @@ public class PromoCodeController : ControllerBase
                     // Check if this email belongs to a registered user
                     var registeredUser = await _context.Users
                         .FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == trimmedEmail && u.IsActive);
-                    
+
                     if (registeredUser != null)
                     {
                         // User is registered - add to PromoCodeUsers if not already added
                         var existingPromoCodeUser = await _context.PromoCodeUsers
                             .FirstOrDefaultAsync(pcu => pcu.PromoCodeId == promoCode.Id && pcu.UserId == registeredUser.Id);
-                        
+
                         if (existingPromoCodeUser == null)
                         {
                             var promoCodeUser = new PromoCodeUser
@@ -387,7 +388,7 @@ public class PromoCodeController : ControllerBase
                             };
                             _context.PromoCodeUsers.Add(promoCodeUser);
                             await _context.SaveChangesAsync();
-                            
+
                             // Queue email notification for registered user
                             emailRecipientsToNotify.Add((registeredUser.Email!, registeredUser.FullName, promoCodeUser));
                         }
@@ -396,7 +397,7 @@ public class PromoCodeController : ControllerBase
                     {
                         // Non-registered email - queue notification if enabled
                         // Note: The email already includes a note that registration is required to use the code
-                        if (request.SendEmailNotification)
+                        if (request.SendEmailNotification.GetValueOrDefault(true))
                         {
                             emailRecipientsToNotify.Add((trimmedEmail, "Valued Customer", null));
                         }
@@ -418,7 +419,7 @@ public class PromoCodeController : ControllerBase
                     // Update notification status for registered users
                     foreach (var recipient in emailRecipientsToNotify)
                     {
-                        if (recipient.PromoCodeUser != null && 
+                        if (recipient.PromoCodeUser != null &&
                             emailResults.TryGetValue(recipient.Email, out var success) && success)
                         {
                             recipient.PromoCodeUser.IsNotified = true;
@@ -458,7 +459,7 @@ public class PromoCodeController : ControllerBase
 
             var now = DateTime.UtcNow;
             var isExpired = promoCode.EndDate.HasValue && promoCode.EndDate.Value < now;
-            var isValid = promoCode.IsActive && !isExpired && 
+            var isValid = promoCode.IsActive && !isExpired &&
                           (promoCode.UsageLimit == null || promoCode.UsedCount < promoCode.UsageLimit.Value);
 
             var response = new PromoCodeResponse
@@ -488,7 +489,7 @@ public class PromoCodeController : ControllerBase
                 IsValid = isValid
             };
 
-            await _auditService.LogAsync("PromoCode", promoCode.Id.ToString(), "Created", 
+            await _auditService.LogAsync("PromoCode", promoCode.Id.ToString(), "Created",
                 $"Created promo code {promoCode.Code}", null, currentUserId);
 
             return CreatedAtAction(nameof(GetPromoCode), new { id = promoCode.Id }, response);
@@ -524,7 +525,7 @@ public class PromoCodeController : ControllerBase
             {
                 var existingCode = await _context.PromoCodes
                     .FirstOrDefaultAsync(pc => pc.Code.ToUpper() == request.Code.ToUpper() && pc.Id != id);
-                
+
                 if (existingCode != null)
                 {
                     return BadRequest(new { message = $"A promo code with code '{request.Code}' already exists" });
@@ -582,7 +583,7 @@ public class PromoCodeController : ControllerBase
             {
                 // Get existing user IDs to identify newly added users
                 var existingUserIds = promoCode.PromoCodeUsers.Select(pcu => pcu.UserId).ToList();
-                
+
                 // Remove existing user associations
                 _context.PromoCodeUsers.RemoveRange(promoCode.PromoCodeUsers);
 
@@ -614,9 +615,10 @@ public class PromoCodeController : ControllerBase
                             var user = users.FirstOrDefault(u => u.Id == pcu.UserId);
                             return user != null && !string.IsNullOrEmpty(user.Email)
                                 ? (Email: user.Email, Name: user.FullName, PromoCodeUser: pcu)
-                                : null;
+                                : ((string Email, string Name, PromoCodeUser PromoCodeUser)?)null;
                         })
                         .Where(r => r != null)
+                        .Select(r => r!.Value)
                         .ToList();
 
                     if (emailRecipients.Any())
@@ -651,20 +653,20 @@ public class PromoCodeController : ControllerBase
                 var processedEmails = new HashSet<string>();
                 var existingUserIds = promoCode.PromoCodeUsers.Select(pcu => pcu.UserId).ToList();
                 var emailRecipientsToNotify = new List<(string Email, string Name, PromoCodeUser? PromoCodeUser)>();
-                
+
                 foreach (var emailAddress in request.EmailAddresses)
                 {
                     if (string.IsNullOrWhiteSpace(emailAddress)) continue;
-                    
+
                     var trimmedEmail = emailAddress.Trim();
-                    
+
                     // Validate email format using MailAddress
                     if (!IsValidEmail(trimmedEmail))
                     {
                         _logger.LogWarning("Invalid email address format: {Email}", trimmedEmail);
                         continue;
                     }
-                    
+
                     var normalizedEmail = trimmedEmail.ToLower();
                     if (processedEmails.Contains(normalizedEmail)) continue;
                     processedEmails.Add(normalizedEmail);
@@ -672,13 +674,13 @@ public class PromoCodeController : ControllerBase
                     // Check if this email belongs to a registered user
                     var registeredUser = await _context.Users
                         .FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == trimmedEmail && u.IsActive);
-                    
+
                     if (registeredUser != null)
                     {
                         // User is registered - add to PromoCodeUsers if not already added
                         var existingPromoCodeUser = await _context.PromoCodeUsers
                             .FirstOrDefaultAsync(pcu => pcu.PromoCodeId == promoCode.Id && pcu.UserId == registeredUser.Id);
-                        
+
                         if (existingPromoCodeUser == null)
                         {
                             var promoCodeUser = new PromoCodeUser
@@ -690,7 +692,7 @@ public class PromoCodeController : ControllerBase
                             };
                             _context.PromoCodeUsers.Add(promoCodeUser);
                             await _context.SaveChangesAsync();
-                            
+
                             // Queue email notification for registered user
                             emailRecipientsToNotify.Add((registeredUser.Email!, registeredUser.FullName, promoCodeUser));
                         }
@@ -698,7 +700,7 @@ public class PromoCodeController : ControllerBase
                     else
                     {
                         // Non-registered email - queue notification if enabled
-                        if (request.SendEmailNotification ?? true)
+                        if (request.SendEmailNotification.GetValueOrDefault(true))
                         {
                             emailRecipientsToNotify.Add((trimmedEmail, "Valued Customer", null));
                         }
@@ -767,7 +769,7 @@ public class PromoCodeController : ControllerBase
 
             var now = DateTime.UtcNow;
             var isExpired = promoCode.EndDate.HasValue && promoCode.EndDate.Value < now;
-            var isValid = promoCode.IsActive && !isExpired && 
+            var isValid = promoCode.IsActive && !isExpired &&
                           (promoCode.UsageLimit == null || promoCode.UsedCount < promoCode.UsageLimit.Value);
 
             var response = new PromoCodeResponse
@@ -798,7 +800,7 @@ public class PromoCodeController : ControllerBase
             };
 
             var currentUserId = GetCurrentUserId();
-            await _auditService.LogAsync("PromoCode", promoCode.Id.ToString(), "Updated", 
+            await _auditService.LogAsync("PromoCode", promoCode.Id.ToString(), "Updated",
                 $"Updated promo code {promoCode.Code}", null, currentUserId);
 
             return Ok(response);
@@ -831,7 +833,7 @@ public class PromoCodeController : ControllerBase
             await _context.SaveChangesAsync();
 
             var currentUserId = GetCurrentUserId();
-            await _auditService.LogAsync("PromoCode", promoCode.Id.ToString(), "Deleted", 
+            await _auditService.LogAsync("PromoCode", promoCode.Id.ToString(), "Deleted",
                 $"Deleted (deactivated) promo code {promoCode.Code}", null, currentUserId);
 
             return Ok(new { message = "Promo code deleted successfully" });
@@ -883,9 +885,9 @@ public class PromoCodeController : ControllerBase
 
             // Get unique customers from orders (who are not registered users)
             var registeredEmails = customers.Select(c => c.Email?.ToLower()).Where(e => !string.IsNullOrEmpty(e)).ToList();
-            
+
             var orderCustomersByEmail = await _context.SalesOrders
-                .Where(so => !string.IsNullOrEmpty(so.CustomerEmail) && 
+                .Where(so => !string.IsNullOrEmpty(so.CustomerEmail) &&
                             !registeredEmails.Contains(so.CustomerEmail!.ToLower()))
                 .GroupBy(so => so.CustomerEmail!.ToLower())
                 .Select(g => new PromoCodeCustomerResponse
@@ -904,9 +906,9 @@ public class PromoCodeController : ControllerBase
 
             // Get customers by phone (for those without email and not registered)
             var registeredPhones = customers.Where(c => c.Phone != null).Select(c => c.Phone).ToList();
-            
+
             var orderCustomersByPhone = await _context.SalesOrders
-                .Where(so => string.IsNullOrEmpty(so.CustomerEmail) && 
+                .Where(so => string.IsNullOrEmpty(so.CustomerEmail) &&
                             !string.IsNullOrEmpty(so.CustomerPhone) &&
                             !registeredPhones.Contains(so.CustomerPhone))
                 .GroupBy(so => so.CustomerPhone!)
@@ -1004,7 +1006,7 @@ public class PromoCodeController : ControllerBase
             {
                 var userUsageCount = await _context.PromoCodeUsages
                     .CountAsync(pcu => pcu.PromoCodeId == promoCode.Id && pcu.UserId == request.UserId);
-                
+
                 if (userUsageCount >= promoCode.UsageLimitPerUser.Value)
                 {
                     return Ok(new { valid = false, message = "You have reached the usage limit for this promo code" });
@@ -1014,9 +1016,10 @@ public class PromoCodeController : ControllerBase
             // Check minimum order amount
             if (promoCode.MinimumOrderAmount.HasValue && request.OrderAmount < promoCode.MinimumOrderAmount.Value)
             {
-                return Ok(new { 
-                    valid = false, 
-                    message = $"Minimum order amount of LE {promoCode.MinimumOrderAmount.Value:F2} required" 
+                return Ok(new
+                {
+                    valid = false,
+                    message = $"Minimum order amount of LE {promoCode.MinimumOrderAmount.Value:F2} required"
                 });
             }
 
@@ -1109,7 +1112,7 @@ public class PromoCodeController : ControllerBase
                         .ToList();
 
                     var usageCount = userUsageRecords.Count;
-                    var hasExceededLimit = promoCode.UsageLimitPerUser.HasValue && 
+                    var hasExceededLimit = promoCode.UsageLimitPerUser.HasValue &&
                                           usageCount >= promoCode.UsageLimitPerUser.Value;
 
                     userUsages.Add(new UserUsageInfo
@@ -1143,7 +1146,7 @@ public class PromoCodeController : ControllerBase
                     var user = userId.HasValue ? await _context.Users.FindAsync(userId.Value) : null;
                     var userUsageRecords = usageGroup.OrderByDescending(pcu => pcu.UsedAt).ToList();
                     var usageCount = userUsageRecords.Count;
-                    var hasExceededLimit = promoCode.UsageLimitPerUser.HasValue && 
+                    var hasExceededLimit = promoCode.UsageLimitPerUser.HasValue &&
                                           usageCount >= promoCode.UsageLimitPerUser.Value;
 
                     userUsages.Add(new UserUsageInfo
@@ -1219,4 +1222,3 @@ public class PromoCodeCustomerResponse
     public int OrderCount { get; set; }
     public DateTime? LastOrderDate { get; set; }
 }
-

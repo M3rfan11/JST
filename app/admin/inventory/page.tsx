@@ -309,7 +309,7 @@ export default function InventoryPage() {
   const handleUpdateStock = async () => {
     if (!selectedProduct || !onlineWarehouseId) return
     
-    const quantity = parseFloat(stockQuantity)
+    const quantity = parseInt(stockQuantity)
     if (isNaN(quantity) || quantity < 0) {
       toast({
         title: "Invalid Quantity",
@@ -325,8 +325,8 @@ export default function InventoryPage() {
       if (selectedVariant) {
         // Update variant inventory for Online Store warehouse
         // Use the variant/warehouse endpoint which creates or updates
-        const minLevel = minimumStockLevel ? parseFloat(minimumStockLevel) : null
-        const maxLevel = maximumStockLevel ? parseFloat(maximumStockLevel) : null
+        const minLevel = minimumStockLevel ? parseInt(minimumStockLevel) : null
+        const maxLevel = maximumStockLevel ? parseInt(maximumStockLevel) : null
         
         // Validate min/max if both are provided
         if (minLevel !== null && maxLevel !== null && minLevel > maxLevel) {
@@ -518,7 +518,7 @@ export default function InventoryPage() {
                 id="quantity"
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 value={stockQuantity}
                 onChange={(e) => setStockQuantity(e.target.value)}
                 style={{ fontFamily: '"Dream Avenue"' }}
@@ -530,7 +530,7 @@ export default function InventoryPage() {
                 id="minimumStockLevel"
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 value={minimumStockLevel}
                 onChange={(e) => setMinimumStockLevel(e.target.value)}
                 placeholder="Leave empty for no minimum"
@@ -543,7 +543,7 @@ export default function InventoryPage() {
                 id="maximumStockLevel"
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 value={maximumStockLevel}
                 onChange={(e) => setMaximumStockLevel(e.target.value)}
                 placeholder="Leave empty for no maximum"
