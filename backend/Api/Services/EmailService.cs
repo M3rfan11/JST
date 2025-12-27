@@ -20,7 +20,7 @@ namespace Api.Services
             _configuration = configuration;
         }
 
-        public async Task<bool> SendPromoCodeNotificationAsync(string toEmail, string toName, string promoCode, decimal discountValue, string discountType, DateTime? endDate)
+        public async Task<bool> SendPromoCodeNotificationAsync(string toEmail, string toName, string promoCode, decimal discountValue, string discountType, DateTime? endDate, bool isGuest = false)
         {
             // Validate email address
             if (!IsValidEmail(toEmail))
@@ -154,9 +154,10 @@ namespace Api.Services
                 <p style=""margin: 10px 0 0 0; color: #666; font-size: 14px;"">{endDateText}</p>
             </div>
             
+            {(isGuest ? $@"
             <div class=""important"">
                 <p style=""margin: 0;""><strong>Important:</strong> To use this promo code, you must be a registered user. If you haven't already, please sign up on our website to take advantage of this offer.</p>
-            </div>
+            </div>" : "")}
             
             <div style=""text-align: center;"">
                 <a href=""{baseUrl}"" class=""button"">Shop Now</a>
@@ -335,7 +336,7 @@ namespace Api.Services
         /// Sends promo code notifications to multiple recipients in parallel using Task.WhenAll
         /// </summary>
         public async Task<Dictionary<string, bool>> SendPromoCodeNotificationsBatchAsync(
-            List<(string Email, string Name)> recipients,
+            List<(string Email, string Name, bool IsGuest)> recipients,
             string promoCode,
             decimal discountValue,
             string discountType,
@@ -362,7 +363,8 @@ namespace Api.Services
                         promoCode,
                         discountValue,
                         discountType,
-                        endDate
+                        endDate,
+                        recipient.IsGuest
                     );
                     return (recipient.Email, success);
                 }

@@ -320,7 +320,7 @@ public class PromoCodeController : ControllerBase
 
                     if (emailRecipients.Any())
                     {
-                        var recipients = emailRecipients.Select(r => (r.Email, r.Name)).ToList();
+                        var recipients = emailRecipients.Select(r => (r.Email, r.Name, false)).ToList();
                         var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
                             recipients,
                             promoCode.Code,
@@ -406,7 +406,7 @@ public class PromoCodeController : ControllerBase
                 // Send all queued emails in batch
                 if (emailRecipientsToNotify.Any())
                 {
-                    var recipients = emailRecipientsToNotify.Select(r => (r.Email, r.Name)).ToList();
+                    var recipients = emailRecipientsToNotify.Select(r => (r.Email, r.Name, r.PromoCodeUser == null)).ToList();
                     var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
                         recipients,
                         promoCode.Code,
@@ -426,6 +426,60 @@ public class PromoCodeController : ControllerBase
                         }
                     }
                     await _context.SaveChangesAsync();
+                }
+            }
+            else if ((request.UserIds == null || !request.UserIds.Any()) && 
+                     (request.EmailAddresses == null || !request.EmailAddresses.Any()) &&
+                     request.SendEmailNotification.GetValueOrDefault(true))
+            {
+                // Send to ALL users (registered + guests) if no specific users/emails selected
+                var recipients = new List<(string Email, string Name, bool IsGuest)>();
+
+                // 1. Get all registered users
+                var registeredUsers = await _context.Users
+                    .Where(u => u.IsActive && !string.IsNullOrEmpty(u.Email))
+                    .Select(u => new { u.Email, u.FullName })
+                    .ToListAsync();
+                
+                var registeredEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (registeredUsers.Any())
+                {
+                    foreach (var user in registeredUsers)
+                    {
+                        if (registeredEmails.Add(user.Email!))
+                        {
+                            recipients.Add((user.Email!, user.FullName, false));
+                        }
+                    }
+                }
+
+                // 2. Get unique guest emails from SalesOrders (excluding registered emails)
+                var guestCustomers = await _context.SalesOrders
+                    .Where(so => !string.IsNullOrEmpty(so.CustomerEmail))
+                    .Select(so => new { so.CustomerEmail, so.CustomerName })
+                    .ToListAsync();
+                    
+                var guestGroups = guestCustomers
+                    .Where(g => !string.IsNullOrEmpty(g.CustomerEmail) && !registeredEmails.Contains(g.CustomerEmail))
+                    .GroupBy(g => g.CustomerEmail!.ToLower())
+                    .Select(g => g.First())
+                    .ToList();
+
+                foreach (var guest in guestGroups)
+                {
+                    recipients.Add((guest.CustomerEmail!, guest.CustomerName ?? "Valued Customer", true));
+                }
+
+                if (recipients.Any())
+                {
+                    // Fire and forget - send in background
+                    _ = _emailService.SendPromoCodeNotificationsBatchAsync(
+                        recipients,
+                        promoCode.Code,
+                        promoCode.DiscountValue,
+                        promoCode.DiscountType,
+                        promoCode.EndDate
+                    );
                 }
             }
 
@@ -622,7 +676,7 @@ public class PromoCodeController : ControllerBase
 
                     if (emailRecipients.Any())
                     {
-                        var recipients = emailRecipients.Select(r => (r.Email, r.Name)).ToList();
+                        var recipients = emailRecipients.Select(r => (r.Email, r.Name, false)).ToList();
                         var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
                             recipients,
                             promoCode.Code,
@@ -708,7 +762,7 @@ public class PromoCodeController : ControllerBase
                 // Send all queued emails in batch
                 if (emailRecipientsToNotify.Any())
                 {
-                    var recipients = emailRecipientsToNotify.Select(r => (r.Email, r.Name)).ToList();
+                    var recipients = emailRecipientsToNotify.Select(r => (r.Email, r.Name, r.PromoCodeUser == null)).ToList();
                     var emailResults = await _emailService.SendPromoCodeNotificationsBatchAsync(
                         recipients,
                         promoCode.Code,

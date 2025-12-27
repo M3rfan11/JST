@@ -56,7 +56,18 @@ export default function NewPromoCodePage() {
       } else if (data && data.data && Array.isArray(data.data)) {
         customersList = data.data
       }
-      setCustomers(customersList)
+      
+      // Assign unique negative IDs to guests (who have id === 0)
+      // This allows them to be selected individually in the UI
+      let guestCounter = -1;
+      const processedList = customersList.map(c => {
+        if (c.id === 0) {
+          return { ...c, id: guestCounter-- };
+        }
+        return c;
+      });
+      
+      setCustomers(processedList)
     } catch (error) {
       console.error("Error loading customers:", error)
     }
@@ -112,6 +123,23 @@ export default function NewPromoCodePage() {
     try {
       setLoading(true)
 
+      // Separate registered users (positive IDs) from guests (negative IDs)
+      const registeredUserIds = selectedCustomerIds.filter(id => id > 0);
+      const guestIds = selectedCustomerIds.filter(id => id < 0);
+      
+      // Find emails for selected guests
+      const guestEmails = guestIds.map(id => {
+        const customer = customers.find(c => c.id === id);
+        return customer ? customer.email : null;
+      }).filter(email => email !== null) as string[];
+      
+      // Combine manual additional emails with selected guest emails
+      const manualEmails = additionalEmails
+        ? additionalEmails.split(",").map((e) => e.trim()).filter((e) => e.length > 0)
+        : [];
+      
+      const allEmailAddresses = [...new Set([...manualEmails, ...guestEmails])];
+
       const requestData = {
         code: formData.code.trim().toUpperCase(),
         description: formData.description || null,
@@ -123,10 +151,8 @@ export default function NewPromoCodePage() {
         usageLimitPerUser: formData.usageLimitPerUser ? parseInt(formData.usageLimitPerUser) : null,
         minimumOrderAmount: formData.minimumOrderAmount ? parseFloat(formData.minimumOrderAmount) : null,
         maximumDiscountAmount: formData.maximumDiscountAmount ? parseFloat(formData.maximumDiscountAmount) : null,
-        userIds: selectedCustomerIds.length > 0 ? selectedCustomerIds : null,
-        emailAddresses: additionalEmails
-          ? additionalEmails.split(",").map((e) => e.trim()).filter((e) => e.length > 0)
-          : null,
+        userIds: registeredUserIds.length > 0 ? registeredUserIds : null,
+        emailAddresses: allEmailAddresses.length > 0 ? allEmailAddresses : null,
         sendEmailNotification: true,
       }
 
